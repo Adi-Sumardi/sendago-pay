@@ -412,7 +412,12 @@ export const api = {
     }
   },
 
-  async updateSettings(payload: { master_qris: string; bank_name: string; bank_account_number: string; bank_account_name: string }): Promise<any> {
+  async updateSettings(payload: {
+    master_qris?: string;
+    bank_name?: string;
+    bank_account_number?: string;
+    bank_account_name?: string;
+  }): Promise<any> {
     const res = await fetch(`${API_BASE_URL}/v1/admin/settings`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...auth.getAuthHeaders() },

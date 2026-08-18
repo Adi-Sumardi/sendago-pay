@@ -124,23 +124,51 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  // Individual Section Saving States
+  const [savingQRIS, setSavingQRIS] = useState(false);
+  const [savedQRISSuccess, setSavedQRISSuccess] = useState(false);
+  const [savingBank, setSavingBank] = useState(false);
+  const [savedBankSuccess, setSavedBankSuccess] = useState(false);
+
+  const handleSaveQRIS = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    if (!masterQRIS.trim()) {
+      toast.warning('Payload Kosong', 'Master QRIS string tidak boleh kosong.');
+      return;
+    }
+    setSavingQRIS(true);
+    try {
+      await api.updateSettings({ master_qris: masterQRIS.trim() });
+      setSavedQRISSuccess(true);
+      toast.gold('Master QRIS Disimpan! 🌟', 'Payload Master QRIS EMVCo berhasil diperbarui.');
+      setTimeout(() => setSavedQRISSuccess(false), 3000);
+    } catch (err: any) {
+      toast.error('Gagal Menyimpan', err.message || 'Terjadi kesalahan saat menyimpan master QRIS');
+    } finally {
+      setSavingQRIS(false);
+    }
+  };
+
+  const handleSaveBank = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bankAccountNumber.trim() || !bankAccountName.trim()) {
+      toast.warning('Data Tidak Lengkap', 'Nomor rekening dan nama pemilik rekening wajib diisi.');
+      return;
+    }
+    setSavingBank(true);
     try {
       await api.updateSettings({
-        master_qris: masterQRIS,
         bank_name: bankName,
-        bank_account_number: bankAccountNumber,
-        bank_account_name: bankAccountName,
+        bank_account_number: bankAccountNumber.trim(),
+        bank_account_name: bankAccountName.trim(),
       });
-      setSavedSuccess(true);
-      toast.gold('Pengaturan Disimpan! 🌟', 'Master QRIS dan data rekening bank berhasil diperbarui.');
-      setTimeout(() => setSavedSuccess(false), 3000);
+      setSavedBankSuccess(true);
+      toast.gold('Rekening Bank Disimpan! 🏦', `Rekening ${bankName} - ${bankAccountNumber} (${bankAccountName}) berhasil disimpan.`);
+      setTimeout(() => setSavedBankSuccess(false), 3000);
     } catch (err: any) {
-      toast.error('Gagal Menyimpan', err.message || 'Gagal menyimpan pengaturan');
+      toast.error('Gagal Menyimpan', err.message || 'Terjadi kesalahan saat menyimpan rekening bank');
     } finally {
-      setSaving(false);
+      setSavingBank(false);
     }
   };
 
@@ -476,13 +504,19 @@ export default function SettingsPage() {
 
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
+      {/* INDEPENDENT CONFIGURATION SECTIONS */}
+      <div className="space-y-6">
         
-        {/* MASTER QRIS CONFIGURATION */}
-        <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4">
-          <div className="flex items-center gap-2 text-zinc-900 border-b border-stone-100 pb-3">
-            <QrCode className="w-5 h-5 text-amber-600" />
-            <h2 className="font-bold text-sm">Konfigurasi Master QRIS Statis</h2>
+        {/* 1. MASTER QRIS CONFIGURATION CARD */}
+        <form onSubmit={handleSaveQRIS} className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+            <div className="flex items-center gap-2 text-zinc-900">
+              <QrCode className="w-5 h-5 text-amber-600" />
+              <h2 className="font-bold text-sm">Konfigurasi Master QRIS Statis</h2>
+            </div>
+            <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200/60">
+              EMVCo Dynamic Engine
+            </span>
           </div>
 
           <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex items-start gap-3">
@@ -510,16 +544,35 @@ export default function SettingsPage() {
               className="w-full p-3 font-mono text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-400 text-zinc-800 leading-relaxed"
             />
             <p className="text-[11px] text-zinc-400">
-              String ini diawali dengan `000201010211...` dan diakhiri dengan checksum 4 karakter.
+              String ini diawali dengan `000201010211...` dan diakhiri dengan checksum 4 karakter (Tag 63).
             </p>
           </div>
-        </div>
 
-        {/* BANK ACCOUNT CONFIGURATION (WITH SEARCHABLE DROPDOWN) */}
-        <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4">
-          <div className="flex items-center gap-2 text-zinc-900 border-b border-stone-100 pb-3">
-            <Building2 className="w-5 h-5 text-amber-600" />
-            <h2 className="font-bold text-sm">Rekening Bank Penampung</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-stone-100">
+            <p className="text-[11px] text-zinc-400">
+              Perubahan QRIS akan langsung aktif di simulasi & checkout API.
+            </p>
+            <button
+              type="submit"
+              disabled={savingQRIS}
+              className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl font-bold text-xs shadow-gold-sm transition flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{savingQRIS ? 'Menyimpan QRIS...' : savedQRISSuccess ? 'Master QRIS Tersimpan! ✓' : 'Simpan Master QRIS'}</span>
+            </button>
+          </div>
+        </form>
+
+        {/* 2. BANK ACCOUNT CONFIGURATION CARD */}
+        <form onSubmit={handleSaveBank} className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+            <div className="flex items-center gap-2 text-zinc-900">
+              <Building2 className="w-5 h-5 text-amber-600" />
+              <h2 className="font-bold text-sm">Rekening Bank Penampung</h2>
+            </div>
+            <span className="text-[11px] font-semibold text-zinc-500 bg-stone-100 px-2.5 py-1 rounded-full border border-stone-200">
+              Transfer Manual & Mutasi
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -538,28 +591,42 @@ export default function SettingsPage() {
                 required
                 value={bankAccountNumber}
                 onChange={(e) => setBankAccountNumber(e.target.value)}
-                placeholder="8831092819"
+                placeholder="7311443927"
                 className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-400 font-mono font-medium"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-semibold text-zinc-700">
-                Atas Nama (Nama Pemilik)
+                Atas Nama (Nama Pemilik Rekening)
               </label>
               <input
                 type="text"
                 required
                 value={bankAccountName}
                 onChange={(e) => setBankAccountName(e.target.value)}
-                placeholder="ADITYA PUTRA"
+                placeholder="ADI SUMARDI"
                 className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-400 font-medium uppercase"
               />
             </div>
           </div>
-        </div>
 
-        {/* BANK MUTATION WEBHOOK LISTENER */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-stone-100">
+            <p className="text-[11px] text-zinc-400">
+              Rekening ini akan ditampilkan sebagai tujuan transfer pada checkout halaman bayar.
+            </p>
+            <button
+              type="submit"
+              disabled={savingBank}
+              className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl font-bold text-xs shadow-gold-sm transition flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{savingBank ? 'Menyimpan Rekening...' : savedBankSuccess ? 'Rekening Tersimpan! ✓' : 'Simpan Rekening Bank'}</span>
+            </button>
+          </div>
+        </form>
+
+        {/* 3. BANK MUTATION WEBHOOK LISTENER CARD */}
         <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4">
           <div className="flex items-center gap-2 text-zinc-900 border-b border-stone-100 pb-3">
             <Radio className="w-5 h-5 text-emerald-600" />
@@ -585,19 +652,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* SUBMIT BUTTON */}
-        <div className="flex justify-end pt-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl font-bold text-xs shadow-gold-sm transition flex items-center gap-2"
-          >
-            <Save className="w-4 h-4" />
-            <span>{saving ? 'Menyimpan...' : 'Simpan Seluruh Pengaturan'}</span>
-          </button>
-        </div>
-
-      </form>
+      </div>
 
       {/* 2FA SETUP MODAL */}
       {show2FAModal && (

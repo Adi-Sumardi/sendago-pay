@@ -404,10 +404,10 @@ func (h *Handler) GetSettings(c *gin.Context) {
 }
 
 type UpdateSettingsRequest struct {
-	MasterQRIS        string `json:"master_qris"`
-	BankName          string `json:"bank_name"`
-	BankAccountNumber string `json:"bank_account_number"`
-	BankAccountName   string `json:"bank_account_name"`
+	MasterQRIS        *string `json:"master_qris"`
+	BankName          *string `json:"bank_name"`
+	BankAccountNumber *string `json:"bank_account_number"`
+	BankAccountName   *string `json:"bank_account_name"`
 }
 
 func (h *Handler) UpdateSettings(c *gin.Context) {
@@ -417,23 +417,63 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
-	var mID string
-	err := h.db.Get(&mID, "SELECT id FROM merchants LIMIT 1")
-	if err != nil {
-		mID = uuid.New().String()
-		_, _ = h.db.Exec(`
-			INSERT INTO merchants (id, email, password_hash, name, master_qris, bank_name, bank_account_number, bank_account_name)
-			VALUES (?, 'admin@sendago.pay', '$2a$10$default', 'Aditya Putra', ?, ?, ?, ?)
-		`, mID, req.MasterQRIS, req.BankName, req.BankAccountNumber, req.BankAccountName)
-	} else {
-		_, _ = h.db.Exec(`
-			UPDATE merchants 
-			SET master_qris = ?, bank_name = ?, bank_account_number = ?, bank_account_name = ?, updated_at = CURRENT_TIMESTAMP
-			WHERE id = ?
-		`, req.MasterQRIS, req.BankName, req.BankAccountNumber, req.BankAccountName, mID)
+	var m struct {
+		ID                string `db:"id"`
+		MasterQRIS        string `db:"master_qris"`
+		BankName          string `db:"bank_name"`
+		BankAccountNumber string `db:"bank_account_number"`
+		BankAccountName   string `db:"bank_account_name"`
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Settings updated"})
+	err := h.db.Get(&m, "SELECT id, master_qris, bank_name, bank_account_number, bank_account_name FROM merchants LIMIT 1")
+	if err != nil {
+		m.ID = uuid.New().String()
+		m.MasterQRIS = "00020101021126590013ID.CO.GOPAY.WWW01189360091438291039210215ID10200392019010303UMI51440014ID.CO.QRIS.WWW0215ID10200392019010303UMI5204541153033605802ID5911SendaGo Pay6013Jakarta Pusat61051011062070703A0163046D5E"
+		m.BankName = "BCA"
+		m.BankAccountNumber = "8831092819"
+		m.BankAccountName = "ADITYA PUTRA"
+
+		_, _ = h.db.Exec(`
+			INSERT INTO merchants (id, email, password_hash, name, master_qris, bank_name, bank_account_number, bank_account_name)
+			VALUES ($1, 'adi@adilabs.id', '$2a$10$default', 'Adi Sumardi', $2, $3, $4, $5)
+		`, m.ID, m.MasterQRIS, m.BankName, m.BankAccountNumber, m.BankAccountName)
+	}
+
+	if req.MasterQRIS != nil && *req.MasterQRIS != "" {
+		m.MasterQRIS = *req.MasterQRIS
+	}
+	if req.BankName != nil && *req.BankName != "" {
+		m.BankName = *req.BankName
+	}
+	if req.BankAccountNumber != nil && *req.BankAccountNumber != "" {
+		m.BankAccountNumber = *req.BankAccountNumber
+	}
+	if req.BankAccountName != nil && *req.BankAccountName != "" {
+		m.BankAccountName = *req.BankAccountName
+	}
+
+	_, _ = h.db.Exec(`
+		UPDATE merchants 
+		SET master_qris = $1, bank_name = $2, bank_account_number = $3, bank_account_name = $4, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $5
+	`, m.MasterQRIS, m.BankName, m.BankAccountNumber, m.BankAccountName, m.ID)
+
+	_, _ = h.db.Exec(`
+		UPDATE merchants 
+		SET master_qris = ?, bank_name = ?, bank_account_number = ?, bank_account_name = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, m.MasterQRIS, m.BankName, m.BankAccountNumber, m.BankAccountName, m.ID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Pengaturan berhasil disimpan",
+		"data": gin.H{
+			"master_qris":         m.MasterQRIS,
+			"bank_name":           m.BankName,
+			"bank_account_number": m.BankAccountNumber,
+			"bank_account_name":   m.BankAccountName,
+		},
+	})
 }
 
 func (h *Handler) generateAccessToken(merchantID, email string) (string, error) {
