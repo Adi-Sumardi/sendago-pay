@@ -26,6 +26,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { api, AdminUser } from '@/lib/api';
+import { auth } from '@/lib/auth';
 import { formatDate } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
