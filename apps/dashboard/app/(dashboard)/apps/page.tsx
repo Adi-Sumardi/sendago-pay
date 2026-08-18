@@ -151,7 +151,7 @@ export default function ConnectedAppsPage() {
     }
   };
 
-  const pendingRequestsCount = keyRequests.filter((r) => r.status === 'PENDING').length;
+  const pendingRequestsCount = (keyRequests || []).filter((r) => r.status === 'PENDING').length;
 
   const handleCreateApp = async (e: React.FormEvent) => {
     e.preventDefault();

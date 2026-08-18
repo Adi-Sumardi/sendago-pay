@@ -57,9 +57,9 @@ export default function DashboardOverviewPage() {
         api.getWebhookLogs(),
       ]);
 
-      if (statsData.status === 'fulfilled') setStats(statsData.value);
-      if (txsData.status === 'fulfilled') setTransactions(txsData.value);
-      if (logsData.status === 'fulfilled') setWebhookLogs(logsData.value);
+      if (statsData.status === 'fulfilled' && statsData.value) setStats(statsData.value);
+      if (txsData.status === 'fulfilled' && Array.isArray(txsData.value)) setTransactions(txsData.value);
+      if (logsData.status === 'fulfilled' && Array.isArray(logsData.value)) setWebhookLogs(logsData.value);
 
       if (isManual) {
         toast.success('Data Diperbarui', 'Metrik transaksi terbaru berhasil dimuat.');
@@ -92,7 +92,7 @@ export default function DashboardOverviewPage() {
   };
 
   // Mock initial transactions if DB is empty on first boot
-  const displayTxs = transactions.length > 0 ? transactions : [
+  const displayTxs = (Array.isArray(transactions) && transactions.length > 0) ? transactions : [
     {
       id: 'tx-1',
       app_id: 'app-1',

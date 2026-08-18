@@ -1,6 +1,6 @@
 import { auth } from './auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
 
 export interface PaymentDetails {
   id: string;
@@ -219,7 +219,8 @@ export const api = {
         headers: { ...auth.getAuthHeaders() },
       });
       if (!res.ok) throw new Error('Failed to load transactions');
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     } catch {
       return [];
     }
@@ -246,7 +247,8 @@ export const api = {
         headers: { ...auth.getAuthHeaders() },
       });
       if (!res.ok) throw new Error('Failed to load apps');
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     } catch {
       return [];
     }
@@ -320,7 +322,8 @@ export const api = {
         headers: { ...auth.getAuthHeaders() },
       });
       if (!res.ok) return [];
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     } catch {
       return [];
     }
@@ -370,7 +373,8 @@ export const api = {
         headers: { ...auth.getAuthHeaders() },
       });
       if (!res.ok) throw new Error('Failed to load webhook logs');
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     } catch {
       return [];
     }
@@ -427,7 +431,8 @@ export const api = {
         headers: { ...auth.getAuthHeaders() },
       });
       if (!res.ok) throw new Error('Failed to load users');
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     } catch {
       return [];
     }

@@ -288,6 +288,10 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		return
 	}
 
+	if rows == nil {
+		rows = []TxRow{}
+	}
+
 	c.JSON(http.StatusOK, rows)
 }
 
@@ -302,7 +306,7 @@ func (h *Handler) ListWebhookLogs(c *gin.Context) {
 		ORDER BY w.created_at DESC
 		LIMIT 50
 	`
-	var logs []struct {
+	type WebhookLogRow struct {
 		ID             string    `json:"id" db:"id"`
 		AppID          string    `json:"app_id" db:"app_id"`
 		AppName        string    `json:"app_name" db:"app_name"`
@@ -314,12 +318,16 @@ func (h *Handler) ListWebhookLogs(c *gin.Context) {
 		IsSuccess      bool      `json:"is_success" db:"is_success"`
 		CreatedAt      time.Time `json:"created_at" db:"created_at"`
 	}
-
+	var logs []WebhookLogRow
 	err := h.db.Select(&logs, query)
 	if err != nil {
-		log.Printf("[Dashboard] ListWebhookLogs query error: %v", err)
-		c.JSON(http.StatusOK, []interface{}{})
+		log.Printf("[Dashboard] ListWebhookLogs error: %v", err)
+		c.JSON(http.StatusOK, []WebhookLogRow{})
 		return
+	}
+
+	if logs == nil {
+		logs = []WebhookLogRow{}
 	}
 
 	c.JSON(http.StatusOK, logs)
