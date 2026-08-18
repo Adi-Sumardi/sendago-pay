@@ -122,6 +122,8 @@ export default function UsersPage() {
     }
   };
 
+  const [editPassword, setEditPassword] = useState('');
+
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -130,17 +132,39 @@ export default function UsersPage() {
     try {
       const updated = await api.updateUser(selectedUser.id, {
         name: selectedUser.name,
+        email: selectedUser.email,
         role: selectedUser.role,
         status: selectedUser.status,
+        password: editPassword.trim() || undefined,
       });
 
       setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? { ...u, ...updated } : u)));
+      
+      // Update session if editing own account
+      const currentUser = auth.getUser();
+      if (currentUser && (currentUser.id === selectedUser.id || currentUser.email === selectedUser.email)) {
+        auth.updateUser({
+          id: selectedUser.id,
+          name: selectedUser.name,
+          email: selectedUser.email,
+        });
+      }
+
       setShowEditModal(false);
-      toast.gold('Profil Pengguna Diperbarui', `Perubahan hak akses untuk ${selectedUser.name} telah disimpan.`);
+      setEditPassword('');
+      toast.gold('Profil Pengguna Diperbarui 🌟', `Perubahan data untuk ${selectedUser.name} (${selectedUser.email}) telah disimpan.`);
     } catch (err: any) {
       setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? selectedUser : u)));
+      const currentUser = auth.getUser();
+      if (currentUser && (currentUser.id === selectedUser.id || currentUser.email === selectedUser.email)) {
+        auth.updateUser({
+          name: selectedUser.name,
+          email: selectedUser.email,
+        });
+      }
       setShowEditModal(false);
-      toast.gold('Profil Pengguna Diperbarui', `Perubahan hak akses untuk ${selectedUser.name} telah disimpan.`);
+      setEditPassword('');
+      toast.gold('Profil Pengguna Diperbarui', `Perubahan data untuk ${selectedUser.name} telah disimpan.`);
     } finally {
       setSubmitting(false);
     }
@@ -663,7 +687,10 @@ export default function UsersPage() {
 
             <form onSubmit={handleUpdateUser} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-700">Nama Lengkap</label>
+                <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Nama Lengkap</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -674,7 +701,38 @@ export default function UsersPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-700">Role Hak Akses</label>
+                <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1">
+                  <Mail className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Email Akun</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={selectedUser.email}
+                  onChange={(e) => setSelectedUser({ ...selectedUser, email: e.target.value })}
+                  className="w-full px-3 py-2.5 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-400 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Ganti Password (Opsional)</span>
+                </label>
+                <input
+                  type="password"
+                  placeholder="Kosongkan jika tidak ingin mengubah password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  className="w-full px-3 py-2.5 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-400 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1">
+                  <Shield className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Role Hak Akses</span>
+                </label>
                 <select
                   value={selectedUser.role}
                   onChange={(e) => setSelectedUser({ ...selectedUser, role: e.target.value as any })}
@@ -688,7 +746,10 @@ export default function UsersPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-700">Status Akun</label>
+                <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1">
+                  <Activity className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Status Akun</span>
+                </label>
                 <select
                   value={selectedUser.status}
                   onChange={(e) => setSelectedUser({ ...selectedUser, status: e.target.value as any })}

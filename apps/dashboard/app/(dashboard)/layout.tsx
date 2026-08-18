@@ -42,17 +42,37 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const currentUser = auth.getUser();
-    if (currentUser) {
-      setUser(currentUser);
-    } else {
-      setUser({
-        id: 'default-admin',
-        name: 'Aditya Putra',
-        email: 'admin@sendago.pay',
-        is_2fa_enabled: false,
-      });
-    }
+    const syncUser = () => {
+      const currentUser = auth.getUser();
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        setUser({
+          id: 'default-admin',
+          name: 'Aditya Putra',
+          email: 'admin@sendago.pay',
+          is_2fa_enabled: false,
+        });
+      }
+    };
+
+    syncUser();
+
+    const handleUserUpdate = (e: any) => {
+      if (e?.detail) {
+        setUser(e.detail);
+      } else {
+        syncUser();
+      }
+    };
+
+    window.addEventListener('sendago_user_updated', handleUserUpdate);
+    window.addEventListener('storage', syncUser);
+
+    return () => {
+      window.removeEventListener('sendago_user_updated', handleUserUpdate);
+      window.removeEventListener('storage', syncUser);
+    };
   }, []);
 
   // Close mobile drawer on route change

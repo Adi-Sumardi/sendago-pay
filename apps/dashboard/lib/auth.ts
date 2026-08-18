@@ -44,6 +44,19 @@ export const auth = {
     window.location.href = '/login';
   },
 
+  updateUser(partialUser: Partial<AuthUser>) {
+    if (typeof window === 'undefined') return;
+    const current = this.getUser() || {
+      id: 'default-admin',
+      name: 'Aditya Putra',
+      email: 'admin@sendago.pay',
+    };
+    const updated = { ...current, ...partialUser };
+    localStorage.setItem(USER_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('sendago_user_updated', { detail: updated }));
+    return updated;
+  },
+
   getAuthHeaders(): Record<string, string> {
     const token = this.getToken();
     return token ? { Authorization: `Bearer ${token}` } : {};

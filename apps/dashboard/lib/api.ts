@@ -449,7 +449,7 @@ export const api = {
     return data;
   },
 
-  async updateUser(id: string, payload: { name?: string; role?: string; status?: string }): Promise<AdminUser> {
+  async updateUser(id: string, payload: { name?: string; email?: string; role?: string; status?: string; password?: string }): Promise<AdminUser> {
     const res = await fetch(`${API_BASE_URL}/v1/admin/users/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...auth.getAuthHeaders() },
@@ -458,6 +458,14 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to update user');
     return data;
+  },
+
+  async updateProfile(payload: { name: string; email: string; password?: string }): Promise<AdminUser> {
+    const user = auth.getUser();
+    const userId = user?.id || '00000000-0000-0000-0000-000000000001';
+    const updated = await this.updateUser(userId, payload);
+    auth.updateUser({ name: updated.name || payload.name, email: updated.email || payload.email });
+    return updated;
   },
 
   async resetUser2FA(id: string): Promise<{ status: string; message: string }> {

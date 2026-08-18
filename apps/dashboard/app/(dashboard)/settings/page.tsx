@@ -34,8 +34,17 @@ import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { BankSelect } from '@/components/ui/bank-select';
 import { formatDate } from '@/lib/utils';
 
+import { auth } from '@/lib/auth';
+
 export default function SettingsPage() {
   const { toast } = useToast();
+
+  // Admin Profile State
+  const [adminName, setAdminName] = useState('Aditya Putra');
+  const [adminEmail, setAdminEmail] = useState('admin@sendago.pay');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savedProfileSuccess, setSavedProfileSuccess] = useState(false);
 
   const [masterQRIS, setMasterQRIS] = useState('');
   const [bankName, setBankName] = useState('BCA');
@@ -67,7 +76,38 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadSettings();
+    const currentUser = auth.getUser();
+    if (currentUser) {
+      if (currentUser.name) setAdminName(currentUser.name);
+      if (currentUser.email) setAdminEmail(currentUser.email);
+    }
   }, []);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminName.trim() || !adminEmail.trim()) {
+      toast.warning('Data Tidak Lengkap', 'Nama dan email tidak boleh kosong.');
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      await api.updateProfile({
+        name: adminName.trim(),
+        email: adminEmail.trim(),
+        password: adminPassword.trim() || undefined,
+      });
+
+      setSavedProfileSuccess(true);
+      setAdminPassword('');
+      toast.gold('Profil Diperbarui! 🌟', `Nama (${adminName}) & Email (${adminEmail}) berhasil disimpan.`);
+      setTimeout(() => setSavedProfileSuccess(false), 3000);
+    } catch (err: any) {
+      toast.error('Gagal Menyimpan Profil', err.message || 'Terjadi kesalahan saat menyimpan profil.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -206,9 +246,90 @@ export default function SettingsPage() {
             </span>
           </div>
           <p className="text-xs text-zinc-500 mt-0.5">
-            Konfigurasi keamanan 2FA, master QRIS statis, rekening bank penampung dana, dan mail engine SendagoMail.
+            Konfigurasi profil administrator, keamanan 2FA, master QRIS statis, rekening bank penampung dana, dan mail engine SendagoMail.
           </p>
         </div>
+      </div>
+
+      {/* ADMIN PROFILE SECTION */}
+      <div className="bg-white rounded-3xl p-6 border border-amber-200/90 shadow-2xs space-y-4">
+        <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+          <div className="flex items-center gap-2 text-zinc-900">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center font-bold text-xs">
+              {adminName ? adminName.substring(0, 2).toUpperCase() : 'AP'}
+            </div>
+            <div>
+              <h2 className="font-bold text-sm">Profil Akun Administrator</h2>
+              <p className="text-[11px] text-zinc-400">Ubah nama tampilan, alamat email, dan kata sandi login dashboard Anda.</p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveProfile} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1">
+                <span className="text-amber-600 font-bold">•</span>
+                <span>Nama Lengkap Admin</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={adminName}
+                onChange={(e) => setAdminName(e.target.value)}
+                placeholder="Contoh: Aditya Putra"
+                className="w-full px-3.5 py-2.5 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-400 font-medium"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1">
+                <span className="text-amber-600 font-bold">•</span>
+                <span>Email Administrator</span>
+              </label>
+              <input
+                type="email"
+                required
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                placeholder="admin@sendago.pay"
+                className="w-full px-3.5 py-2.5 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-400 font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1 max-w-md">
+            <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1">
+              <Lock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Ganti Password Baru (Opsional)</span>
+            </label>
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              placeholder="Kosongkan jika tidak ingin mengubah password"
+              className="w-full px-3.5 py-2.5 text-xs bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-amber-400 font-medium"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={savingProfile}
+              className="px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-xl shadow-gold-sm transition flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              <span>{savingProfile ? 'Menyimpan...' : 'Simpan Profil Akun'}</span>
+            </button>
+
+            {savedProfileSuccess && (
+              <span className="text-xs text-emerald-600 font-bold flex items-center gap-1 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Profil & Email Berhasil Disimpan!</span>
+              </span>
+            )}
+          </div>
+        </form>
       </div>
 
       {/* 2FA SECURITY SECTION */}

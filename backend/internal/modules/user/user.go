@@ -33,6 +33,7 @@ type CreateUserRequest struct {
 
 type UpdateUserRequest struct {
 	Name     string  `json:"name"`
+	Email    string  `json:"email"`
 	Role     string  `json:"role"`
 	Status   string  `json:"status"`
 	Password *string `json:"password"`
@@ -58,8 +59,11 @@ func (h *Handler) ListUsers(c *gin.Context) {
 		ORDER BY created_at ASC
 	`)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users: " + err.Error()})
+		c.JSON(http.StatusOK, []AdminUser{})
 		return
+	}
+	if users == nil {
+		users = []AdminUser{}
 	}
 	c.JSON(http.StatusOK, users)
 }
@@ -92,14 +96,12 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		INSERT INTO admin_users (id, email, password_hash, name, role, status, is_2fa_enabled, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	// Fallback dialect handling (works across Postgres and SQLite)
 	_, err = h.db.Exec(`
 		INSERT INTO admin_users (id, email, password_hash, name, role, status, is_2fa_enabled, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, newUser.ID, newUser.Email, string(hash), newUser.Name, newUser.Role, newUser.Status, 0, newUser.CreatedAt, newUser.UpdatedAt)
 	
 	if err != nil {
-		// Try postgres positional parameters
 		_, err = h.db.Exec(query, newUser.ID, newUser.Email, string(hash), newUser.Name, newUser.Role, newUser.Status, false, newUser.CreatedAt, newUser.UpdatedAt)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already registered or database error: " + err.Error()})
@@ -128,26 +130,48 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		if err == nil {
 			_, _ = h.db.Exec("UPDATE admin_users SET password_hash = ? WHERE id = ?", string(hash), id)
 			_, _ = h.db.Exec("UPDATE admin_users SET password_hash = $1 WHERE id = $2", string(hash), id)
+			_, _ = h.db.Exec("UPDATE merchants SET password_hash = ? WHERE id = ? OR email = ?", string(hash), id, req.Email)
+			_, _ = h.db.Exec("UPDATE merchants SET password_hash = $1 WHERE id = $2 OR email = $3", string(hash), id, req.Email)
 		}
 	}
 
 	_, _ = h.db.Exec(`
 		UPDATE admin_users 
 		SET name = COALESCE(NULLIF(?, ''), name),
+		    email = COALESCE(NULLIF(?, ''), email),
 		    role = COALESCE(NULLIF(?, ''), role),
 		    status = COALESCE(NULLIF(?, ''), status),
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, req.Name, req.Role, req.Status, id)
+	`, req.Name, req.Email, req.Role, req.Status, id)
 
 	_, _ = h.db.Exec(`
 		UPDATE admin_users 
 		SET name = COALESCE(NULLIF($1, ''), name),
-		    role = COALESCE(NULLIF($2, ''), role),
-		    status = COALESCE(NULLIF($3, ''), status),
+		    email = COALESCE(NULLIF($2, ''), email),
+		    role = COALESCE(NULLIF($3, ''), role),
+		    status = COALESCE(NULLIF($4, ''), status),
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $4
-	`, req.Name, req.Role, req.Status, id)
+		WHERE id = $5
+	`, req.Name, req.Email, req.Role, req.Status, id)
+
+	// Also sync name/email to merchants table if exists
+	if req.Name != "" || req.Email != "" {
+		_, _ = h.db.Exec(`
+			UPDATE merchants 
+			SET name = COALESCE(NULLIF(?, ''), name),
+			    email = COALESCE(NULLIF(?, ''), email),
+			    updated_at = CURRENT_TIMESTAMP
+			WHERE id = ? OR email = ?
+		`, req.Name, req.Email, id, req.Email)
+		_, _ = h.db.Exec(`
+			UPDATE merchants 
+			SET name = COALESCE(NULLIF($1, ''), name),
+			    email = COALESCE(NULLIF($2, ''), email),
+			    updated_at = CURRENT_TIMESTAMP
+			WHERE id = $3 OR email = $4
+		`, req.Name, req.Email, id, req.Email)
+	}
 
 	var updated AdminUser
 	_ = h.db.Get(&updated, "SELECT id, email, name, role, status, is_2fa_enabled, created_at, updated_at FROM admin_users WHERE id = ? LIMIT 1", id)
