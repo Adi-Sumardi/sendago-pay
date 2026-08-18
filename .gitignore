@@ -1,0 +1,25 @@
+# Dependencies & Builds
+node_modules/
+dist/
+build/
+.next/
+*.log
+.env
+.env.*
+.env.local
+!.env.example
+.DS_Store
+coverage/
+.turbo/
+tmp/
+
+# Go binaries & DB
+backend/server
+backend/bin/
+bin/
+*.exe
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+sendago_pay.db

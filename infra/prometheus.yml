@@ -1,0 +1,10 @@
+# Minimal local scrape config. None of the Go services expose /metrics yet — this is
+# the wiring for when they do (a small addition per service, not built in this pass).
+# Present so Grafana has a working Prometheus data source to point at from day one.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

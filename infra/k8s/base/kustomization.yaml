@@ -1,0 +1,11 @@
+# Skeleton only — not applied to any cluster. Local development uses
+# infra/docker-compose.yml. Only representative manifests are included (api-gateway,
+# payment-service, dashboard); the remaining 13 services follow the exact same
+# Deployment+Service shape — copy payment-service.yaml and adjust name/port/env.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - api-gateway.yaml
+  - payment-service.yaml
+  - dashboard.yaml
+  - secret.example.yaml

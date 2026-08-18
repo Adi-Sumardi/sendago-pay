@@ -1,0 +1,13 @@
+{
+  "name": "sendago-payment",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/dashboard",
+    "packages/ts-types"
+  ],
+  "scripts": {
+    "dev": "docker compose --env-file .env -f infra/docker-compose.yml up --build",
+    "dev:down": "docker compose --env-file .env -f infra/docker-compose.yml down"
+  }
+}

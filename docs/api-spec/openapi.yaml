@@ -1,0 +1,148 @@
+openapi: 3.0.3
+info:
+  title: SendaGo Payment API
+  version: "1.0"
+  description: >
+    Fase 1: Payment Link, Invoice, QRIS (as a checkout payment method), Webhook,
+    Dashboard. All requests go through api-gateway. Dashboard-auth endpoints use a JWT
+    from /auth/login or /auth/signup; the public integration surface uses a merchant
+    API key + X-Environment header.
+servers:
+  - url: http://localhost:8000
+
+components:
+  securitySchemes:
+    jwt: { type: http, scheme: bearer, bearerFormat: JWT }
+    apiKey: { type: http, scheme: bearer, description: "sg_sandbox_... or sg_production_..." }
+  parameters:
+    XEnvironment:
+      name: X-Environment
+      in: header
+      required: true
+      schema: { type: string, enum: [sandbox, production] }
+
+paths:
+  /auth/signup:
+    post:
+      summary: Create a merchant account (email + password)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties: { email: { type: string }, password: { type: string, minLength: 10 } }
+      responses: { "201": { description: JWT returned } }
+
+  /auth/login:
+    post:
+      summary: Log in
+      responses: { "200": { description: JWT returned } }
+
+  /merchants:
+    get:
+      summary: List merchants owned by the authenticated user
+      security: [{ jwt: [] }]
+      responses: { "200": { description: OK } }
+    post:
+      summary: Create a merchant
+      security: [{ jwt: [] }]
+      responses: { "201": { description: Created } }
+
+  /merchants/{merchantId}/api-keys:
+    post:
+      summary: Issue an API key (production requires prior manual admin approval)
+      security: [{ jwt: [] }]
+      responses:
+        "201": { description: Key issued, rawKey shown once }
+        "403": { description: Production not approved for this merchant }
+    get:
+      summary: List API keys
+      security: [{ jwt: [] }]
+      responses: { "200": { description: OK } }
+
+  /merchants/{merchantId}/webhooks:
+    post:
+      summary: Register a webhook endpoint (secret shown once)
+      security: [{ jwt: [] }]
+      responses: { "201": { description: Created } }
+    get:
+      summary: List webhook endpoints
+      security: [{ jwt: [] }]
+      responses: { "200": { description: OK } }
+
+  /payment-links:
+    post:
+      summary: Create a fixed-amount Payment Link
+      security: [{ apiKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/XEnvironment" }]
+      responses: { "201": { description: Created, includes shareable slug } }
+    get:
+      summary: List payment links
+      security: [{ apiKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/XEnvironment" }]
+      responses: { "200": { description: OK } }
+
+  /pay/{slug}:
+    get:
+      summary: Public checkout page data for a Payment Link (no auth)
+      responses: { "200": { description: OK } }
+
+  /pay/{slug}/checkout:
+    post:
+      summary: Create a Transaction + Midtrans Snap charge for this Payment Link (no auth)
+      responses: { "201": { description: Returns redirectUrl to Midtrans Snap } }
+
+  /payments/{id}:
+    get:
+      summary: Get transaction status
+      security: [{ apiKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/XEnvironment" }]
+      responses: { "200": { description: OK } }
+
+  /invoices:
+    post:
+      summary: Create an invoice (with line items and due date)
+      security: [{ apiKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/XEnvironment" }]
+      responses: { "201": { description: Created } }
+    get:
+      summary: List invoices
+      security: [{ apiKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/XEnvironment" }]
+      responses: { "200": { description: OK } }
+
+  /invoices/{id}/cancel:
+    post:
+      summary: Cancel an unpaid invoice
+      security: [{ apiKey: [] }]
+      responses: { "200": { description: OK } }
+
+  /invoice/{id}:
+    get:
+      summary: Public invoice page data (no auth)
+      responses: { "200": { description: OK } }
+
+  /invoice/{id}/checkout:
+    post:
+      summary: Create a Transaction + Midtrans Snap charge for this invoice (no auth)
+      responses: { "201": { description: Returns redirectUrl to Midtrans Snap } }
+
+  /settlements/balance:
+    get:
+      summary: Fase-1 ledger balance (no payout yet — see ADR 003)
+      security: [{ apiKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/XEnvironment" }]
+      responses: { "200": { description: OK } }
+
+  /reports/transactions/summary:
+    get:
+      summary: Fase-1-minimal transaction summary (ClickHouse-backed)
+      security: [{ apiKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/XEnvironment" }]
+      responses: { "200": { description: OK } }
+
+  /webhooks/midtrans:
+    post:
+      summary: Midtrans's inbound notification callback (signature-authenticated, not API-key)
+      responses: { "200": { description: Always 200 once signature verifies — see webhook-service } }
