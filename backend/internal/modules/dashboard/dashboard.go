@@ -3,6 +3,7 @@ package dashboard
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -166,19 +167,23 @@ func (h *Handler) Setup2FA(c *gin.Context) {
 		userEmail = c.GetString("merchant_email")
 	}
 	if userEmail == "" {
-		userEmail = "admin@sendago.pay"
+		_ = h.db.Get(&userEmail, "SELECT email FROM admin_users WHERE status = 'ACTIVE' ORDER BY created_at ASC LIMIT 1")
+	}
+	if userEmail == "" {
+		userEmail = "adi@adilabs.id"
 	}
 
-	otpAuthURL := totp.GenerateOTPAuthURL(userEmail, secret, "SendaGoPay")
+	otpAuthURL := totp.GenerateOTPAuthURL("SendaGoPay", userEmail, secret)
 
-	_, _ = h.db.Exec("UPDATE merchants SET totp_secret = ? WHERE email = ?", secret, userEmail)
 	_, _ = h.db.Exec("UPDATE merchants SET totp_secret = $1 WHERE email = $2", secret, userEmail)
-	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = ? WHERE email = ?", secret, userEmail)
 	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = $1 WHERE email = $2", secret, userEmail)
+	// Also fallback without email filter if single admin exists
+	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = $1 WHERE status = 'ACTIVE'", secret)
 
 	c.JSON(http.StatusOK, gin.H{
 		"secret":      secret,
 		"otpauth_url": otpAuthURL,
+		"email":       userEmail,
 	})
 }
 
@@ -194,8 +199,11 @@ func (h *Handler) VerifyAndEnable2FA(c *gin.Context) {
 		return
 	}
 
-	if !totp.ValidateCode(req.Secret, req.Code) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Kode 2FA salah atau telah kadaluarsa. Cek waktu jam di perangkat Anda."})
+	secret := strings.TrimSpace(req.Secret)
+	code := strings.TrimSpace(req.Code)
+
+	if !totp.ValidateCode(secret, code) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Kode 2FA salah atau telah kadaluarsa. Pastikan jam di ponsel Anda sinkron otomatis."})
 		return
 	}
 
@@ -204,13 +212,15 @@ func (h *Handler) VerifyAndEnable2FA(c *gin.Context) {
 		userEmail = c.GetString("merchant_email")
 	}
 	if userEmail == "" {
-		userEmail = "admin@sendago.pay"
+		_ = h.db.Get(&userEmail, "SELECT email FROM admin_users WHERE status = 'ACTIVE' ORDER BY created_at ASC LIMIT 1")
+	}
+	if userEmail == "" {
+		userEmail = "adi@adilabs.id"
 	}
 
-	_, _ = h.db.Exec("UPDATE merchants SET totp_secret = ?, is_2fa_enabled = 1 WHERE email = ?", req.Secret, userEmail)
-	_, _ = h.db.Exec("UPDATE merchants SET totp_secret = $1, is_2fa_enabled = true WHERE email = $2", req.Secret, userEmail)
-	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = ?, is_2fa_enabled = 1 WHERE email = ?", req.Secret, userEmail)
-	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = $1, is_2fa_enabled = true WHERE email = $2", req.Secret, userEmail)
+	_, _ = h.db.Exec("UPDATE merchants SET totp_secret = $1, is_2fa_enabled = true WHERE email = $2", secret, userEmail)
+	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = $1, is_2fa_enabled = true WHERE email = $2", secret, userEmail)
+	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = $1, is_2fa_enabled = true WHERE status = 'ACTIVE'", secret)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":         "success",
@@ -225,13 +235,15 @@ func (h *Handler) Disable2FA(c *gin.Context) {
 		userEmail = c.GetString("merchant_email")
 	}
 	if userEmail == "" {
-		userEmail = "admin@sendago.pay"
+		_ = h.db.Get(&userEmail, "SELECT email FROM admin_users WHERE status = 'ACTIVE' ORDER BY created_at ASC LIMIT 1")
+	}
+	if userEmail == "" {
+		userEmail = "adi@adilabs.id"
 	}
 
-	_, _ = h.db.Exec("UPDATE merchants SET is_2fa_enabled = 0, totp_secret = '' WHERE email = ?", userEmail)
 	_, _ = h.db.Exec("UPDATE merchants SET is_2fa_enabled = false, totp_secret = '' WHERE email = $1", userEmail)
-	_, _ = h.db.Exec("UPDATE admin_users SET is_2fa_enabled = 0, totp_secret = '' WHERE email = ?", userEmail)
 	_, _ = h.db.Exec("UPDATE admin_users SET is_2fa_enabled = false, totp_secret = '' WHERE email = $1", userEmail)
+	_, _ = h.db.Exec("UPDATE admin_users SET is_2fa_enabled = false, totp_secret = '' WHERE status = 'ACTIVE'")
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":         "success",

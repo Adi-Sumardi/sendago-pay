@@ -56,7 +56,7 @@ func GenerateCode(secret string, t time.Time) (string, error) {
 	return fmt.Sprintf("%06d", code), nil
 }
 
-// ValidateCode checks if a user-supplied 6-digit code matches the secret (allows +/- 1 step for clock drift)
+// ValidateCode checks if a user-supplied 6-digit code matches the secret (allows +/- 2 steps for clock drift)
 func ValidateCode(secret, code string) bool {
 	code = strings.TrimSpace(code)
 	if len(code) != 6 {
@@ -64,11 +64,13 @@ func ValidateCode(secret, code string) bool {
 	}
 
 	now := time.Now()
-	// Check window: T-30s, T, T+30s
+	// Check window: T-60s, T-30s, T, T+30s, T+60s
 	windows := []time.Time{
+		now.Add(-60 * time.Second),
 		now.Add(-30 * time.Second),
 		now,
 		now.Add(30 * time.Second),
+		now.Add(60 * time.Second),
 	}
 
 	for _, t := range windows {
