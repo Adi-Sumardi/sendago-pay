@@ -114,7 +114,13 @@ func main() {
 					return
 				}
 				if req.MasterQRIS == "" {
-					req.MasterQRIS = cfg.DefaultMasterQRIS
+					var dbMaster string
+					_ = db.Get(&dbMaster, "SELECT master_qris FROM merchants WHERE master_qris != '' LIMIT 1")
+					if dbMaster != "" {
+						req.MasterQRIS = dbMaster
+					} else {
+						req.MasterQRIS = cfg.DefaultMasterQRIS
+					}
 				}
 				dynamicQR, err := qris.GenerateDynamicQRIS(req.MasterQRIS, req.Amount)
 				if err != nil {
