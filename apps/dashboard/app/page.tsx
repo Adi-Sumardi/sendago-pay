@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   Zap,
   ArrowRight,
-  CheckCircle2,
   Check,
   QrCode,
   Building2,
@@ -15,9 +14,6 @@ import {
   Sparkles,
   Server,
   RefreshCw,
-  ExternalLink,
-  ChevronRight,
-  ChevronLeft,
   Smartphone,
   CreditCard,
   Receipt,
@@ -50,9 +46,9 @@ export default function LandingPage() {
       subtitle: 'Pencocokan 3-digit kode unik instan untuk BCA, Mandiri, BRI, BNI tanpa perlu repot cek mutasi m-Banking satu per satu.',
     },
     {
-      badge: '🚀 Developer-First API',
-      title: 'REST API Terenkripsi & Webhook Real-Time',
-      subtitle: 'Integrasikan checkout ke website SaaS, toko online, Flutter mobile app, dan sistem kasir Anda dalam hitungan menit.',
+      badge: '🚀 REST API & Webhook Instan',
+      title: 'Integrasi Checkout Cepat & Terenkripsi',
+      subtitle: 'Hubungkan pembayaran ke website SaaS, toko online, Flutter mobile app, dan sistem kasir Anda dalam hitungan menit.',
     },
   ];
 
@@ -65,10 +61,10 @@ export default function LandingPage() {
   }, [slides.length]);
 
   return (
-    <div className="min-h-screen bg-stone-50/60 text-zinc-900 flex flex-col justify-between selection:bg-amber-100 selection:text-amber-900 font-sans">
+    <div className="min-h-screen bg-[#FAF9F5] text-zinc-900 flex flex-col justify-between selection:bg-amber-100 selection:text-amber-900 font-sans">
       
-      {/* 1. TOP MARQUEE TICKER (Matching sendagomail & sendago) */}
-      <div className="bg-[#B91C1C] text-white py-2 px-4 text-xs font-semibold overflow-hidden whitespace-nowrap shadow-xs relative z-50">
+      {/* 1. TOP MARQUEE TICKER (Gold / Amber Theme) */}
+      <div className="bg-gradient-to-r from-amber-700 via-amber-600 to-amber-800 text-white py-2 px-4 text-xs font-semibold overflow-hidden whitespace-nowrap shadow-xs relative z-50">
         <div className="inline-flex items-center gap-8 animate-marquee">
           <span className="flex items-center gap-1.5">
             <span>🔥</span> Self-hosted, kontrol penuh tanpa potongan fee per transaksi
@@ -95,7 +91,7 @@ export default function LandingPage() {
       </div>
 
       {/* 2. TOP NAVBAR */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-stone-200/80 sticky top-0 z-40">
+      <header className="bg-white/95 backdrop-blur-md border-b border-amber-200/60 sticky top-0 z-40 shadow-[0_2px_15px_rgba(217,119,6,0.04)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 sm:h-18 flex items-center justify-between">
           
           {/* Logo */}
@@ -106,7 +102,7 @@ export default function LandingPage() {
               className="w-9 h-9 object-contain rounded-xl shadow-xs group-hover:scale-105 transition-transform duration-200"
             />
             <span className="text-lg font-black tracking-tight text-zinc-900">
-              SendaGo <span className="text-[#B91C1C]">Pay</span>
+              SendaGo <span className="text-amber-600">Pay</span>
             </span>
           </Link>
 
@@ -114,7 +110,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="px-4 py-2 text-xs sm:text-sm font-bold text-zinc-700 hover:text-zinc-900 hover:bg-stone-100/80 rounded-xl transition"
+              className="px-4 py-2 text-xs sm:text-sm font-bold text-zinc-700 hover:text-amber-700 hover:bg-amber-50/60 rounded-xl transition"
             >
               Login
             </Link>
@@ -122,7 +118,7 @@ export default function LandingPage() {
             {isAuth ? (
               <Link
                 href="/dashboard"
-                className="px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-white bg-[#B91C1C] hover:bg-[#991B1B] rounded-xl shadow-xs transition flex items-center gap-1.5"
+                className="px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-xl shadow-gold-sm transition flex items-center gap-1.5"
               >
                 <span>Buka Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
@@ -130,7 +126,7 @@ export default function LandingPage() {
             ) : (
               <Link
                 href="/login"
-                className="px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-white bg-[#B91C1C] hover:bg-[#991B1B] rounded-xl shadow-xs transition"
+                className="px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-xl shadow-gold-sm transition"
               >
                 Daftar Gratis
               </Link>
@@ -144,7 +140,7 @@ export default function LandingPage() {
         
         <div className="text-center space-y-4 max-w-3xl mx-auto">
           {/* Floating Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-red-50 text-[#B91C1C] border border-red-200/80 text-xs font-bold shadow-2xs animate-in fade-in">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-bold shadow-2xs animate-in fade-in">
             <span>{slides[currentSlide].badge}</span>
           </div>
 
@@ -166,8 +162,8 @@ export default function LandingPage() {
                 onClick={() => setCurrentSlide(idx)}
                 className={`transition-all duration-300 rounded-full ${
                   currentSlide === idx
-                    ? 'w-6 h-2 bg-[#B91C1C]'
-                    : 'w-2 h-2 bg-stone-300 hover:bg-stone-400'
+                    ? 'w-6 h-2 bg-amber-600'
+                    : 'w-2 h-2 bg-amber-200 hover:bg-amber-300'
                 }`}
                 aria-label={`Slide ${idx + 1}`}
               />
@@ -175,16 +171,16 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* 4. TWO PRICING / PLAN CARDS (Matching user screenshot) */}
+        {/* 4. TWO PRICING / PLAN CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto">
           
           {/* CARD 1: PAKET COBA */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between space-y-6">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-amber-200/80 shadow-gold-sm hover:shadow-gold-md transition-all duration-300 flex flex-col justify-between space-y-6">
             <div className="space-y-4">
               
               {/* Header Badge */}
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-black text-lg">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-black text-lg shadow-2xs">
                   💳
                 </div>
                 <div>
@@ -224,10 +220,10 @@ export default function LandingPage() {
             </div>
 
             {/* Price & CTA Button */}
-            <div className="space-y-4 pt-4 border-t border-stone-100">
+            <div className="space-y-4 pt-4 border-t border-amber-100">
               <div>
-                <div className="text-2xl sm:text-3xl font-black text-[#B91C1C] tracking-tight">
-                  Rp 149.000
+                <div className="text-2xl sm:text-3xl font-black text-amber-700 tracking-tight">
+                  Rp 249.000
                 </div>
                 <div className="text-xs text-zinc-400 font-medium">
                   Sekali bayar
@@ -238,7 +234,7 @@ export default function LandingPage() {
                 href="https://wa.me/628123456789?text=Halo%20saya%20tertarik%20mencoba%20Paket%20Coba%20SendaGo%20Pay"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 bg-[#B91C1C] hover:bg-[#991B1B] text-white rounded-2xl font-bold text-xs sm:text-sm text-center shadow-xs transition block"
+                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-2xl font-bold text-xs sm:text-sm text-center shadow-gold-sm transition block"
               >
                 Hubungi Kami
               </a>
@@ -246,12 +242,12 @@ export default function LandingPage() {
           </div>
 
           {/* CARD 2: PAKET PASANGIN */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200/90 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between space-y-6">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-amber-200/80 shadow-gold-sm hover:shadow-gold-md transition-all duration-300 flex flex-col justify-between space-y-6">
             <div className="space-y-4">
               
               {/* Header Badge */}
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-black text-lg">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-black text-lg shadow-2xs">
                   🖥️
                 </div>
                 <div>
@@ -295,10 +291,10 @@ export default function LandingPage() {
             </div>
 
             {/* Price & CTA Button */}
-            <div className="space-y-4 pt-4 border-t border-stone-100">
+            <div className="space-y-4 pt-4 border-t border-amber-100">
               <div>
-                <div className="text-2xl sm:text-3xl font-black text-[#B91C1C] tracking-tight">
-                  Rp 4.999.000
+                <div className="text-2xl sm:text-3xl font-black text-amber-700 tracking-tight">
+                  Rp 9.999.000
                 </div>
                 <div className="text-xs text-zinc-400 font-medium">
                   Sekali bayar
@@ -309,7 +305,7 @@ export default function LandingPage() {
                 href="https://wa.me/628123456789?text=Halo%20saya%20tertarik%20Paket%20Pasangin%20SendaGo%20Pay"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 bg-[#B91C1C] hover:bg-[#991B1B] text-white rounded-2xl font-bold text-xs sm:text-sm text-center shadow-xs transition block"
+                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-2xl font-bold text-xs sm:text-sm text-center shadow-gold-sm transition block"
               >
                 Hubungi Kami
               </a>
@@ -317,30 +313,30 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* 5. BOTTOM PILL FEATURE BAR (Matching screenshot bottom bar) */}
-        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 pt-6 text-xs text-zinc-500 font-semibold border-t border-stone-200/60">
+        {/* 5. BOTTOM PILL FEATURE BAR */}
+        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 pt-6 text-xs text-zinc-600 font-semibold border-t border-amber-200/60">
           <div className="flex items-center gap-1.5">
-            <QrCode className="w-4 h-4 text-[#B91C1C]" />
+            <QrCode className="w-4 h-4 text-amber-600" />
             <span>QRIS Dinamis 0% Fee</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Building2 className="w-4 h-4 text-[#B91C1C]" />
+            <Building2 className="w-4 h-4 text-amber-600" />
             <span>Rekonsiliasi Mutasi Otomatis</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-[#B91C1C]" />
+            <ShieldCheck className="w-4 h-4 text-amber-600" />
             <span>2FA RFC 6238 Terenkripsi</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Zap className="w-4 h-4 text-[#B91C1C]" />
+            <Zap className="w-4 h-4 text-amber-600" />
             <span>Webhook & REST API Instan</span>
           </div>
         </div>
       </main>
 
       {/* 6. FOOTER */}
-      <footer className="bg-white border-t border-stone-200/80 py-6 px-4 text-center text-xs text-zinc-400 space-y-2">
-        <p className="font-medium text-zinc-500">
+      <footer className="bg-white border-t border-amber-200/60 py-6 px-4 text-center text-xs text-zinc-400 space-y-2">
+        <p className="font-medium text-zinc-600">
           © {new Date().getFullYear()} SendaGo Pay — Payment Gateway & Engine Platform. All rights reserved.
         </p>
         <p className="text-[11px] text-zinc-400">

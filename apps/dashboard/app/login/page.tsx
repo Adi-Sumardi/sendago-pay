@@ -24,8 +24,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [email, setEmail] = useState('admin@sendago.pay');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,18 +63,6 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err: any) {
-      if (email === 'admin@sendago.pay' && password === 'admin123') {
-        const demoUser = {
-          id: 'demo-admin-id',
-          name: 'Aditya Putra',
-          email: 'admin@sendago.pay',
-          is_2fa_enabled: false,
-        };
-        auth.setSession('demo_jwt_token_2026', demoUser);
-        toast.success('Login Berhasil (Akun Demo)!', 'Selamat datang di SendaGo Pay Dashboard.');
-        router.push('/dashboard');
-        return;
-      }
       const errMsg = err.message || 'Login gagal. Periksa kembali email dan password Anda.';
       setError(errMsg);
       toast.error('Login Gagal', errMsg);
@@ -104,17 +92,6 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err: any) {
-      if (totpCode.trim() === '123456' || totpCode.trim().length === 6) {
-        auth.setSession('demo_jwt_token_2026', {
-          id: 'demo-admin-id',
-          name: 'Aditya Putra',
-          email: 'admin@sendago.pay',
-          is_2fa_enabled: true,
-        });
-        toast.success('Verifikasi 2FA Sukses!', 'Selamat datang di SendaGo Pay Dashboard.');
-        router.push('/dashboard');
-        return;
-      }
       const errMsg = err.message || 'Kode 2FA salah atau kadaluarsa. Coba lagi.';
       setError(errMsg);
       toast.error('Verifikasi 2FA Gagal', errMsg);
@@ -206,20 +183,6 @@ export default function LoginPage() {
                 <span>{loading ? 'Memverifikasi...' : 'Masuk ke Dashboard'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
-
-              <div className="pt-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('admin@sendago.pay');
-                    setPassword('admin123');
-                    toast.info('Akun Demo Terisi', 'Klik Masuk ke Dashboard untuk melanjutkan.');
-                  }}
-                  className="text-[11px] text-amber-800/80 hover:text-amber-900 font-semibold bg-amber-50 border border-amber-200/60 px-3 py-1 rounded-full transition"
-                >
-                  ⚡ Gunakan Akun Demo (admin@sendago.pay / admin123)
-                </button>
-              </div>
             </form>
           ) : (
             
