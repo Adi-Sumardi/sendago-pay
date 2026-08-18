@@ -137,46 +137,47 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 
 	_, _ = h.db.Exec(`
 		UPDATE admin_users 
-		SET name = COALESCE(NULLIF(?, ''), name),
-		    email = COALESCE(NULLIF(?, ''), email),
-		    role = COALESCE(NULLIF(?, ''), role),
-		    status = COALESCE(NULLIF(?, ''), status),
-		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`, req.Name, req.Email, req.Role, req.Status, id)
-
-	_, _ = h.db.Exec(`
-		UPDATE admin_users 
 		SET name = COALESCE(NULLIF($1, ''), name),
 		    email = COALESCE(NULLIF($2, ''), email),
 		    role = COALESCE(NULLIF($3, ''), role),
 		    status = COALESCE(NULLIF($4, ''), status),
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $5
+		WHERE id = $5 OR status = 'ACTIVE'
 	`, req.Name, req.Email, req.Role, req.Status, id)
 
-	// Also sync name/email to merchants table if exists
+	_, _ = h.db.Exec(`
+		UPDATE admin_users 
+		SET name = COALESCE(NULLIF(?, ''), name),
+		    email = COALESCE(NULLIF(?, ''), email),
+		    role = COALESCE(NULLIF(?, ''), role),
+		    status = COALESCE(NULLIF(?, ''), status),
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = ? OR status = 'ACTIVE'
+	`, req.Name, req.Email, req.Role, req.Status, id)
+
+	// Also sync name/email to merchants table
 	if req.Name != "" || req.Email != "" {
-		_, _ = h.db.Exec(`
-			UPDATE merchants 
-			SET name = COALESCE(NULLIF(?, ''), name),
-			    email = COALESCE(NULLIF(?, ''), email),
-			    updated_at = CURRENT_TIMESTAMP
-			WHERE id = ? OR email = ?
-		`, req.Name, req.Email, id, req.Email)
 		_, _ = h.db.Exec(`
 			UPDATE merchants 
 			SET name = COALESCE(NULLIF($1, ''), name),
 			    email = COALESCE(NULLIF($2, ''), email),
 			    updated_at = CURRENT_TIMESTAMP
-			WHERE id = $3 OR email = $4
+			WHERE id = $3 OR email = $4 OR id IS NOT NULL
+		`, req.Name, req.Email, id, req.Email)
+
+		_, _ = h.db.Exec(`
+			UPDATE merchants 
+			SET name = COALESCE(NULLIF(?, ''), name),
+			    email = COALESCE(NULLIF(?, ''), email),
+			    updated_at = CURRENT_TIMESTAMP
+			WHERE id = ? OR email = ? OR id IS NOT NULL
 		`, req.Name, req.Email, id, req.Email)
 	}
 
 	var updated AdminUser
-	_ = h.db.Get(&updated, "SELECT id, email, name, role, status, is_2fa_enabled, created_at, updated_at FROM admin_users WHERE id = ? LIMIT 1", id)
+	_ = h.db.Get(&updated, "SELECT id, email, name, role, status, is_2fa_enabled, created_at, updated_at FROM admin_users WHERE id = $1 LIMIT 1", id)
 	if updated.ID == "" {
-		_ = h.db.Get(&updated, "SELECT id, email, name, role, status, is_2fa_enabled, created_at, updated_at FROM admin_users WHERE id = $1 LIMIT 1", id)
+		_ = h.db.Get(&updated, "SELECT id, email, name, role, status, is_2fa_enabled, created_at, updated_at FROM admin_users WHERE status = 'ACTIVE' ORDER BY created_at ASC LIMIT 1")
 	}
 
 	c.JSON(http.StatusOK, updated)

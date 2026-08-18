@@ -92,10 +92,15 @@ export default function SettingsPage() {
 
     setSavingProfile(true);
     try {
-      await api.updateProfile({
+      const updated = await api.updateProfile({
         name: adminName.trim(),
         email: adminEmail.trim(),
         password: adminPassword.trim() || undefined,
+      });
+
+      auth.updateUser({
+        name: updated?.name || adminName.trim(),
+        email: updated?.email || adminEmail.trim(),
       });
 
       setSavedProfileSuccess(true);
