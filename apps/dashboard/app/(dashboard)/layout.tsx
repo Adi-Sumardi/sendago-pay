@@ -23,6 +23,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { auth, AuthUser } from '@/lib/auth';
+import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useEnvironment } from '@/lib/env-context';
