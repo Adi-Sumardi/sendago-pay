@@ -6,6 +6,11 @@ import { EnvironmentProvider } from '@/lib/env-context';
 export const metadata: Metadata = {
   title: 'SendaGo Pay — Payment Gateway & Engine',
   description: 'Self-hosted internal payment gateway with Dynamic QRIS & Bank Mutation Reconciler',
+  icons: {
+    icon: '/images/logo.png',
+    shortcut: '/images/logo.png',
+    apple: '/images/logo.png',
+  },
 };
 
 export default function RootLayout({

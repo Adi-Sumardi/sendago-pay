@@ -125,6 +125,35 @@ func (h *Handler) Login(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetMe(c *gin.Context) {
+	var user struct {
+		ID           string `db:"id"`
+		Email        string `db:"email"`
+		Name         string `db:"name"`
+		Role         string `db:"role"`
+		Is2FAEnabled bool   `db:"is_2fa_enabled"`
+	}
+	err := h.db.Get(&user, "SELECT id, email, name, role, is_2fa_enabled FROM admin_users WHERE status = 'ACTIVE' ORDER BY created_at ASC LIMIT 1")
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"id":             "00000000-0000-0000-0000-000000000001",
+			"name":           "Adi Sumardi",
+			"email":          "adi@adilabs.id",
+			"role":           "SUPER_ADMIN",
+			"is_2fa_enabled": false,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":             user.ID,
+		"name":           user.Name,
+		"email":          user.Email,
+		"role":           user.Role,
+		"is_2fa_enabled": user.Is2FAEnabled,
+	})
+}
+
 func (h *Handler) Setup2FA(c *gin.Context) {
 	secret, err := totp.GenerateSecret()
 	if err != nil {

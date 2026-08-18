@@ -42,17 +42,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const syncUser = () => {
+    const syncUser = async () => {
       const currentUser = auth.getUser();
       if (currentUser) {
         setUser(currentUser);
-      } else {
-        setUser({
-          id: 'default-admin',
-          name: 'Aditya Putra',
-          email: 'admin@sendago.pay',
-          is_2fa_enabled: false,
-        });
+      }
+      try {
+        const freshUser = await api.getMe();
+        if (freshUser && freshUser.name && freshUser.email) {
+          setUser(freshUser);
+          auth.updateUser(freshUser);
+        }
+      } catch (err) {
+        // fallback
       }
     };
 
@@ -90,7 +92,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard, label: 'Overview' },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, label: 'Overview' },
     { name: 'Transactions', href: '/transactions', icon: Receipt, label: 'Transaksi' },
     { name: 'Connected Apps', href: '/apps', icon: Layers, label: 'Aplikasi' },
     { name: 'User Management', href: '/users', icon: Users, label: 'Tim & User' },
@@ -117,16 +119,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="space-y-6">
           
           {/* Logo Brand */}
-          <div className="flex items-center gap-3 px-3 py-2 cursor-pointer" onClick={() => router.push('/')}>
-            <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-base shadow-sm transition-all duration-500 ${
-                isProduction
-                  ? 'bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 shadow-emerald-200'
-                  : 'bg-gradient-to-tr from-slate-700 via-slate-600 to-slate-400 shadow-slate-300'
-              }`}
-            >
-              S
-            </div>
+          <div className="flex items-center gap-3 px-3 py-2 cursor-pointer" onClick={() => router.push('/dashboard')}>
+            <img
+              src="/images/logo.png"
+              alt="SendaGo Pay"
+              className="w-9 h-9 object-contain rounded-xl shadow-xs"
+            />
             <div>
               <div className="font-extrabold text-zinc-900 tracking-tight text-lg leading-none">
                 SendaGo{' '}
@@ -155,7 +153,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <nav className="space-y-1">
             {navigation.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || (item.href === '/dashboard' && pathname === '/');
               return (
                 <button
                   key={item.name}
@@ -246,15 +244,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               {/* Drawer Header */}
               <div className="flex items-center justify-between pb-3 border-b border-stone-100">
                 <div className="flex items-center gap-2.5">
-                  <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-sm ${
-                      isProduction
-                        ? 'bg-gradient-to-tr from-emerald-600 to-teal-400'
-                        : 'bg-gradient-to-tr from-slate-700 to-slate-400'
-                    }`}
-                  >
-                    S
-                  </div>
+                  <img
+                    src="/images/logo.png"
+                    alt="SendaGo Pay"
+                    className="w-8 h-8 object-contain rounded-xl shadow-xs"
+                  />
                   <div>
                     <div className="font-extrabold text-zinc-900 text-base leading-none">
                       SendaGo{' '}

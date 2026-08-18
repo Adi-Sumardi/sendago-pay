@@ -96,6 +96,7 @@ func main() {
 		admin := v1.Group("/admin")
 		{
 			admin.POST("/login", dashboardHandler.Login)
+			admin.GET("/me", dashboardHandler.GetMe)
 
 			// 2FA Endpoints
 			admin.POST("/2fa/setup", dashboardHandler.Setup2FA)

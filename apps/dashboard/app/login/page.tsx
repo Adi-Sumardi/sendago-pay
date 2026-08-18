@@ -37,7 +37,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (auth.isAuthenticated()) {
-      router.push('/');
+      router.push('/dashboard');
     }
   }, [router]);
 
@@ -60,7 +60,7 @@ export default function LoginPage() {
       if (res.token && res.user) {
         auth.setSession(res.token, res.user);
         toast.success('Login Berhasil!', `Selamat datang kembali, ${res.user.name}.`);
-        router.push('/');
+        router.push('/dashboard');
       }
     } catch (err: any) {
       if (email === 'admin@sendago.pay' && password === 'admin123') {
@@ -72,7 +72,7 @@ export default function LoginPage() {
         };
         auth.setSession('demo_jwt_token_2026', demoUser);
         toast.success('Login Berhasil (Akun Demo)!', 'Selamat datang di SendaGo Pay Dashboard.');
-        router.push('/');
+        router.push('/dashboard');
         return;
       }
       const errMsg = err.message || 'Login gagal. Periksa kembali email dan password Anda.';
@@ -88,7 +88,7 @@ export default function LoginPage() {
     if (totpCode.trim().length !== 6) {
       const msg = 'Masukkan 6 digit kode 2FA.';
       setError(msg);
-      toast.warning('Format Salah', msg);
+      toast.warning('Input Tidak Lengkap', msg);
       return;
     }
 
@@ -101,7 +101,7 @@ export default function LoginPage() {
       if (res.token && res.user) {
         auth.setSession(res.token, res.user);
         toast.success('Verifikasi 2FA Sukses!', `Selamat datang kembali, ${res.user.name}.`);
-        router.push('/');
+        router.push('/dashboard');
       }
     } catch (err: any) {
       if (totpCode.trim() === '123456' || totpCode.trim().length === 6) {
@@ -112,7 +112,7 @@ export default function LoginPage() {
           is_2fa_enabled: true,
         });
         toast.success('Verifikasi 2FA Sukses!', 'Selamat datang di SendaGo Pay Dashboard.');
-        router.push('/');
+        router.push('/dashboard');
         return;
       }
       const errMsg = err.message || 'Kode 2FA salah atau kadaluarsa. Coba lagi.';
@@ -131,9 +131,11 @@ export default function LoginPage() {
         
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-amber-400 text-white font-black text-2xl shadow-gold-md mb-2">
-            S
-          </div>
+          <img
+            src="/images/logo.png"
+            alt="SendaGo Pay"
+            className="inline-block w-14 h-14 object-contain rounded-2xl shadow-gold-sm mb-2"
+          />
           <h1 className="text-2xl font-black text-zinc-900 tracking-tight">
             SendaGo <span className="text-amber-600">Pay</span>
           </h1>

@@ -127,6 +127,19 @@ export const api = {
     return data;
   },
 
+  async getMe(): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/v1/admin/me`, {
+        cache: 'no-store',
+        headers: { ...auth.getAuthHeaders() },
+      });
+      if (!res.ok) return null;
+      return res.json();
+    } catch {
+      return null;
+    }
+  },
+
   async setup2FA(): Promise<{ secret: string; otpauth_url: string }> {
     const res = await fetch(`${API_BASE_URL}/v1/admin/2fa/setup`, {
       method: 'POST',
