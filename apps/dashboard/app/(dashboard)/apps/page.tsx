@@ -112,34 +112,7 @@ export default function ConnectedAppsPage() {
         api.getKeyRegenRequests(),
       ]);
 
-      if (appsData && appsData.length > 0) {
-        setApps(appsData);
-      } else {
-        setApps([
-          {
-            id: 'app-default-1',
-            name: 'SendaGo SaaS Platform',
-            description: 'Aplikasi utama checkout course dan SaaS internal',
-            public_key: isProduction ? 'sg_live_pk_88a91b2c4d5e6f7a' : 'sg_test_pk_11a22b33c44d55e6',
-            secret_key: isProduction ? 'sg_live_sk_99b82c3d4e5f6a7b8c9d0e1f' : 'sg_test_sk_77b66c55d44e33f21a0b',
-            webhook_url: 'https://api.sendago.com/webhooks/payment',
-            webhook_secret: isProduction ? 'whsec_live_9928192831' : 'whsec_test_0019283741',
-            is_active: true,
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: 'app-default-2',
-            name: 'SendaGo Mobile App',
-            description: 'Aplikasi Flutter Android/iOS Checkout',
-            public_key: isProduction ? 'sg_live_pk_44e55f66a77b88c9' : 'sg_test_pk_99x88y77z66a55b4',
-            secret_key: isProduction ? 'sg_live_sk_11a22b33c44d55e6f7a8b9c0' : 'sg_test_sk_44c55d66e77f88a99b',
-            webhook_url: 'https://store.sendago.com/api/payment-callback',
-            webhook_secret: isProduction ? 'whsec_live_7728192842' : 'whsec_test_5544332211',
-            is_active: true,
-            created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-          },
-        ]);
-      }
+      setApps(Array.isArray(appsData) ? appsData : []);
 
       setKeyRequests(requestsData || []);
 
@@ -446,8 +419,28 @@ export default function ConnectedAppsPage() {
 
       {/* TAB CONTENT: APPS LIST */}
       {activeTab === 'apps' && (
-        <div className="grid grid-cols-1 gap-5">
-          {apps.map((app) => {
+        apps.length === 0 ? (
+          <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-stone-300 space-y-4">
+            <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto text-amber-600 border border-amber-200">
+              <Layers className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-zinc-800">Belum Ada Aplikasi Terhubung</h3>
+              <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
+                Tambahkan aplikasi klien Anda (seperti SIAKAD YAPI, Web PMB, atau Kursus Online) untuk menghasilkan API Key.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Aplikasi Baru</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5">
+            {apps.map((app) => {
             const isAppActive = app.is_active !== false;
 
             const displayPublicKey = isSandbox
@@ -682,7 +675,8 @@ export default function ConnectedAppsPage() {
             );
           })}
         </div>
-      )}
+      )
+    )}
 
       {/* TAB CONTENT: KEY REGENERATION REQUESTS APPROVAL QUEUE */}
       {activeTab === 'requests' && (

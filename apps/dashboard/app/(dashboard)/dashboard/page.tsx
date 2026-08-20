@@ -91,48 +91,8 @@ export default function DashboardOverviewPage() {
     }
   };
 
-  // Mock initial transactions if DB is empty on first boot
-  const displayTxs = (Array.isArray(transactions) && transactions.length > 0) ? transactions : [
-    {
-      id: 'tx-1',
-      app_id: 'app-1',
-      app_name: 'ShopSmart',
-      order_id: 'SGD-7391',
-      amount: 1250000,
-      unique_code: 0,
-      total_amount: 1250000,
-      channel: 'QRIS',
-      status: 'PAID',
-      created_at: new Date(Date.now() - 3 * 60000).toISOString(),
-      expired_at: new Date(Date.now() + 27 * 60000).toISOString(),
-    },
-    {
-      id: 'tx-2',
-      app_id: 'app-2',
-      app_name: 'DevStore Pro',
-      order_id: 'SGD-7390',
-      amount: 980000,
-      unique_code: 247,
-      total_amount: 980247,
-      channel: 'BANK_TRANSFER',
-      status: 'PENDING',
-      created_at: new Date(Date.now() - 12 * 60000).toISOString(),
-      expired_at: new Date(Date.now() + 18 * 60000).toISOString(),
-    },
-    {
-      id: 'tx-3',
-      app_id: 'app-3',
-      app_name: 'CourseApp',
-      order_id: 'SGD-7389',
-      amount: 450000,
-      unique_code: 112,
-      total_amount: 450112,
-      channel: 'QRIS',
-      status: 'PAID',
-      created_at: new Date(Date.now() - 35 * 60000).toISOString(),
-      expired_at: new Date(Date.now() - 5 * 60000).toISOString(),
-    },
-  ];
+  // Real transactions from DB
+  const displayTxs = Array.isArray(transactions) ? transactions : [];
 
   return (
     <div className="space-y-6">
@@ -465,7 +425,15 @@ export default function DashboardOverviewPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 text-zinc-700">
-              {displayTxs.map((tx) => (
+              {displayTxs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 px-4 text-center text-zinc-400">
+                    <p className="font-semibold text-zinc-600">Belum ada transaksi</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">Transaksi pembayaran dari aplikasi Anda akan otomatis tampil di sini.</p>
+                  </td>
+                </tr>
+              ) : (
+                displayTxs.map((tx) => (
                 <tr key={tx.id} className="hover:bg-stone-50/60 transition">
                   <td className="py-3.5 px-4 font-mono font-bold text-zinc-900">
                     {tx.order_id}
@@ -513,7 +481,7 @@ export default function DashboardOverviewPage() {
                     </a>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
