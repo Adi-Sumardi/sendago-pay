@@ -137,10 +137,10 @@ func (h *Handler) CreateApp(c *gin.Context) {
 
 	query := h.db.Rebind(`
 		INSERT INTO apps (id, merchant_id, name, description, public_key, secret_key, webhook_url, webhook_secret, is_active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 
-	_, err := h.db.Exec(query, appID, merchantID, req.Name, req.Description, publicKey, secretKey, req.WebhookURL, webhookSec)
+	_, err := h.db.Exec(query, appID, merchantID, req.Name, req.Description, publicKey, secretKey, req.WebhookURL, webhookSec, true)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create app: " + err.Error()})
 		return

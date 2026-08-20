@@ -336,7 +336,7 @@ func seedInitialData(db *sqlx.DB) {
 				'sg_live_sk_99b82c3d4e5f6a7b8c9d0e1f',
 				'https://api.sendago.com/webhooks/payment',
 				'whsec_77c88d99e00f11a22b33c44d',
-				1
+				TRUE
 			)
 		`)
 	}
