@@ -1,6 +1,6 @@
 module sendagopay-backend
 
-go 1.22
+go 1.25.0
 
 require (
 	github.com/gin-contrib/cors v1.7.7
@@ -12,6 +12,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/redis/go-redis/v9 v9.22.0
 	golang.org/x/crypto v0.55.0
+	modernc.org/sqlite v1.56.0
 )
 
 require (
@@ -51,5 +52,4 @@ require (
 	modernc.org/libc v1.74.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.56.0 // indirect
 )
