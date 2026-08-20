@@ -241,6 +241,9 @@ func (h *Handler) RevokeKey(c *gin.Context) {
 func (h *Handler) DeleteApp(c *gin.Context) {
 	appID := c.Param("id")
 
+	delTx := h.db.Rebind("DELETE FROM transactions WHERE app_id = ?")
+	_, _ = h.db.Exec(delTx, appID)
+
 	delReq := h.db.Rebind("DELETE FROM key_regeneration_requests WHERE app_id = ?")
 	_, _ = h.db.Exec(delReq, appID)
 
@@ -248,7 +251,11 @@ func (h *Handler) DeleteApp(c *gin.Context) {
 	_, _ = h.db.Exec(delLogs, appID)
 
 	delApp := h.db.Rebind("DELETE FROM apps WHERE id = ?")
-	_, _ = h.db.Exec(delApp, appID)
+	_, err := h.db.Exec(delApp, appID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete app: " + err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "App and API Keys deleted successfully"})
 }
