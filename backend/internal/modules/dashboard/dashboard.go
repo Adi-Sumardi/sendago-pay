@@ -302,27 +302,40 @@ type TxRow struct {
 
 func (h *Handler) ListTransactions(c *gin.Context) {
 	status := c.Query("status")
+	appID := c.Query("app_id")
 
 	baseQuery := `
-		SELECT t.id, t.app_id, COALESCE(a.name, 'SendaGo SaaS Platform') as app_name, 
+		SELECT t.id, t.app_id, COALESCE(a.name, 'Aplikasi SendaGo') as app_name, 
 		       t.order_id, t.amount, t.unique_code, t.total_amount, t.channel, 
 		       t.status, t.customer_name, t.customer_email, t.customer_phone, 
 		       t.notes, COALESCE(t.metadata, '{}') as metadata, 
 		       t.expired_at, t.paid_at, t.created_at
 		FROM transactions t
-		LEFT JOIN apps a ON t.app_id = a.id
+		LEFT JOIN apps a ON CAST(t.app_id AS TEXT) = CAST(a.id AS TEXT)
 	`
 
-	var rows []TxRow
-	var err error
+	var conditions []string
+	var args []interface{}
 
 	if status != "" {
-		query := h.db.Rebind(baseQuery + " WHERE t.status = ? ORDER BY t.created_at DESC LIMIT 100")
-		err = h.db.Select(&rows, query, status)
-	} else {
-		query := baseQuery + " ORDER BY t.created_at DESC LIMIT 100"
-		err = h.db.Select(&rows, query)
+		conditions = append(conditions, "t.status = ?")
+		args = append(args, status)
 	}
+
+	if appID != "" {
+		conditions = append(conditions, "CAST(t.app_id AS TEXT) = ?")
+		args = append(args, appID)
+	}
+
+	finalQuery := baseQuery
+	if len(conditions) > 0 {
+		finalQuery += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	finalQuery += " ORDER BY t.created_at DESC LIMIT 200"
+
+	var rows []TxRow
+	query := h.db.Rebind(finalQuery)
+	err := h.db.Select(&rows, query, args...)
 
 	if err != nil {
 		log.Printf("[Dashboard] ListTransactions query error: %v", err)
