@@ -72,15 +72,17 @@ func (h *Handler) ListApps(c *gin.Context) {
 	if merchantID == "" {
 		err = h.db.Select(&apps, "SELECT * FROM apps ORDER BY created_at DESC")
 	} else {
-		err = h.db.Select(&apps, "SELECT * FROM apps WHERE merchant_id = ? ORDER BY created_at DESC", merchantID)
-		if err != nil {
-			err = h.db.Select(&apps, "SELECT * FROM apps WHERE merchant_id = $1 ORDER BY created_at DESC", merchantID)
-		}
+		query := h.db.Rebind("SELECT * FROM apps WHERE merchant_id = ? ORDER BY created_at DESC")
+		err = h.db.Select(&apps, query, merchantID)
 	}
 
 	if err != nil {
 		c.JSON(http.StatusOK, []App{})
 		return
+	}
+
+	if apps == nil {
+		apps = []App{}
 	}
 
 	c.JSON(http.StatusOK, apps)
@@ -106,8 +108,8 @@ func (h *Handler) CreateApp(c *gin.Context) {
 		_ = h.db.Get(&mID, "SELECT id FROM merchants LIMIT 1")
 		if mID == "" {
 			mID = uuid.New().String()
-			_, _ = h.db.Exec("INSERT INTO merchants (id, email, password_hash, name) VALUES (?, 'admin@sendago.pay', '$2a$10$default', 'SendaGo Admin')", mID)
-			_, _ = h.db.Exec("INSERT INTO merchants (id, email, password_hash, name) VALUES ($1, 'admin@sendago.pay', '$2a$10$default', 'SendaGo Admin')", mID)
+			insertMerchant := h.db.Rebind("INSERT INTO merchants (id, email, password_hash, name) VALUES (?, 'admin@sendago.pay', '$2a$10$default', 'SendaGo Admin')")
+			_, _ = h.db.Exec(insertMerchant, mID)
 		}
 		merchantID = mID
 	}
@@ -134,24 +136,19 @@ func (h *Handler) CreateApp(c *gin.Context) {
 		webhookSecret = generateRandomKey("whsec_live_", 20)
 	}
 
-	// Cross-database insert
-	_, err := h.db.Exec(`
+	insertQuery := h.db.Rebind(`
 		INSERT INTO apps (id, merchant_id, name, description, public_key, secret_key, webhook_url, webhook_secret, is_active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-	`, appID, merchantID, req.Name, req.Description, publicKey, secretKey, req.WebhookURL, webhookSecret)
-
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, true)
+	`)
+	_, err := h.db.Exec(insertQuery, appID, merchantID, req.Name, req.Description, publicKey, secretKey, req.WebhookURL, webhookSecret)
 	if err != nil {
-		_, _ = h.db.Exec(`
-			INSERT INTO apps (id, merchant_id, name, description, public_key, secret_key, webhook_url, webhook_secret, is_active)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-		`, appID, merchantID, req.Name, req.Description, publicKey, secretKey, req.WebhookURL, webhookSecret)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create app: " + err.Error()})
+		return
 	}
 
 	var created App
-	_ = h.db.Get(&created, "SELECT * FROM apps WHERE id = ? LIMIT 1", appID)
-	if created.ID == "" {
-		_ = h.db.Get(&created, "SELECT * FROM apps WHERE id = $1 LIMIT 1", appID)
-	}
+	selectQuery := h.db.Rebind("SELECT * FROM apps WHERE id = ? LIMIT 1")
+	_ = h.db.Get(&created, selectQuery, appID)
 
 	c.JSON(http.StatusCreated, created)
 }
@@ -170,17 +167,19 @@ func (h *Handler) UpdateApp(c *gin.Context) {
 		return
 	}
 
-	_, _ = h.db.Exec(`
+	updateQuery := h.db.Rebind(`
 		UPDATE apps 
 		SET name = COALESCE(NULLIF(?, ''), name),
 		    description = COALESCE(NULLIF(?, ''), description),
 		    webhook_url = COALESCE(NULLIF(?, ''), webhook_url),
 		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, req.Name, req.Description, req.WebhookURL, appID)
+	`)
+	_, _ = h.db.Exec(updateQuery, req.Name, req.Description, req.WebhookURL, appID)
 
 	var updated App
-	_ = h.db.Get(&updated, "SELECT * FROM apps WHERE id = ? LIMIT 1", appID)
+	selectQuery := h.db.Rebind("SELECT * FROM apps WHERE id = ? LIMIT 1")
+	_ = h.db.Get(&updated, selectQuery, appID)
 	c.JSON(http.StatusOK, updated)
 }
 
@@ -204,23 +203,16 @@ func (h *Handler) RegenerateKeys(c *gin.Context) {
 		newWebhookSec = generateRandomKey("whsec_live_", 20)
 	}
 
-	_, _ = h.db.Exec(`
+	updateQuery := h.db.Rebind(`
 		UPDATE apps 
 		SET public_key = ?, secret_key = ?, webhook_secret = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, newPublicKey, newSecretKey, newWebhookSec, appID)
-
-	_, _ = h.db.Exec(`
-		UPDATE apps 
-		SET public_key = $1, secret_key = $2, webhook_secret = $3, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $4
-	`, newPublicKey, newSecretKey, newWebhookSec, appID)
+	`)
+	_, _ = h.db.Exec(updateQuery, newPublicKey, newSecretKey, newWebhookSec, appID)
 
 	var updated App
-	_ = h.db.Get(&updated, "SELECT * FROM apps WHERE id = ? LIMIT 1", appID)
-	if updated.ID == "" {
-		_ = h.db.Get(&updated, "SELECT * FROM apps WHERE id = $1 LIMIT 1", appID)
-	}
+	selectQuery := h.db.Rebind("SELECT * FROM apps WHERE id = ? LIMIT 1")
+	_ = h.db.Get(&updated, selectQuery, appID)
 
 	c.JSON(http.StatusOK, updated)
 }
@@ -236,14 +228,12 @@ func (h *Handler) RevokeKey(c *gin.Context) {
 		req.IsActive = false
 	}
 
-	_, _ = h.db.Exec("UPDATE apps SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", req.IsActive, appID)
-	_, _ = h.db.Exec("UPDATE apps SET is_active = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2", req.IsActive, appID)
+	updateQuery := h.db.Rebind("UPDATE apps SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+	_, _ = h.db.Exec(updateQuery, req.IsActive, appID)
 
 	var updated App
-	_ = h.db.Get(&updated, "SELECT * FROM apps WHERE id = ? LIMIT 1", appID)
-	if updated.ID == "" {
-		_ = h.db.Get(&updated, "SELECT * FROM apps WHERE id = $1 LIMIT 1", appID)
-	}
+	selectQuery := h.db.Rebind("SELECT * FROM apps WHERE id = ? LIMIT 1")
+	_ = h.db.Get(&updated, selectQuery, appID)
 
 	c.JSON(http.StatusOK, updated)
 }
@@ -251,13 +241,14 @@ func (h *Handler) RevokeKey(c *gin.Context) {
 func (h *Handler) DeleteApp(c *gin.Context) {
 	appID := c.Param("id")
 
-	// Delete associated webhook logs, key requests, and app
-	_, _ = h.db.Exec("DELETE FROM key_regeneration_requests WHERE app_id = ?", appID)
-	_, _ = h.db.Exec("DELETE FROM key_regeneration_requests WHERE app_id = $1", appID)
-	_, _ = h.db.Exec("DELETE FROM webhook_logs WHERE app_id = ?", appID)
-	_, _ = h.db.Exec("DELETE FROM webhook_logs WHERE app_id = $1", appID)
-	_, _ = h.db.Exec("DELETE FROM apps WHERE id = ?", appID)
-	_, _ = h.db.Exec("DELETE FROM apps WHERE id = $1", appID)
+	delReq := h.db.Rebind("DELETE FROM key_regeneration_requests WHERE app_id = ?")
+	_, _ = h.db.Exec(delReq, appID)
+
+	delLogs := h.db.Rebind("DELETE FROM webhook_logs WHERE app_id = ?")
+	_, _ = h.db.Exec(delLogs, appID)
+
+	delApp := h.db.Rebind("DELETE FROM apps WHERE id = ?")
+	_, _ = h.db.Exec(delApp, appID)
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "App and API Keys deleted successfully"})
 }
@@ -282,10 +273,8 @@ func (h *Handler) SubmitKeyRegenRequest(c *gin.Context) {
 	}
 
 	var app App
-	err := h.db.Get(&app, "SELECT * FROM apps WHERE id = ? LIMIT 1", appID)
-	if err != nil {
-		err = h.db.Get(&app, "SELECT * FROM apps WHERE id = $1 LIMIT 1", appID)
-	}
+	selectQuery := h.db.Rebind("SELECT * FROM apps WHERE id = ? LIMIT 1")
+	err := h.db.Get(&app, selectQuery, appID)
 
 	if err != nil || app.ID == "" {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Aplikasi tidak ditemukan"})
@@ -298,23 +287,15 @@ func (h *Handler) SubmitKeyRegenRequest(c *gin.Context) {
 	}
 
 	reqID := uuid.New().String()
-	_, err = h.db.Exec(`
+	insertQuery := h.db.Rebind(`
 		INSERT INTO key_regeneration_requests (id, app_id, app_name, requested_by, environment, reason, notes, status, email_sent)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', 0)
-	`, reqID, app.ID, app.Name, payload.RequestedBy, env, payload.Reason, payload.Notes)
-
-	if err != nil {
-		_, _ = h.db.Exec(`
-			INSERT INTO key_regeneration_requests (id, app_id, app_name, requested_by, environment, reason, notes, status, email_sent)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', FALSE)
-		`, reqID, app.ID, app.Name, payload.RequestedBy, env, payload.Reason, payload.Notes)
-	}
+		VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', false)
+	`)
+	_, _ = h.db.Exec(insertQuery, reqID, app.ID, app.Name, payload.RequestedBy, env, payload.Reason, payload.Notes)
 
 	var created KeyRegenRequest
-	_ = h.db.Get(&created, "SELECT * FROM key_regeneration_requests WHERE id = ? LIMIT 1", reqID)
-	if created.ID == "" {
-		_ = h.db.Get(&created, "SELECT * FROM key_regeneration_requests WHERE id = $1 LIMIT 1", reqID)
-	}
+	selectReq := h.db.Rebind("SELECT * FROM key_regeneration_requests WHERE id = ? LIMIT 1")
+	_ = h.db.Get(&created, selectReq, reqID)
 
 	log.Printf("📩 [KEY REGEN REQUEST] User %s requested Live Key rotation for '%s' (Reason: %s)", payload.RequestedBy, app.Name, payload.Reason)
 
@@ -332,6 +313,9 @@ func (h *Handler) ListKeyRegenRequests(c *gin.Context) {
 		c.JSON(http.StatusOK, []KeyRegenRequest{})
 		return
 	}
+	if requests == nil {
+		requests = []KeyRegenRequest{}
+	}
 	c.JSON(http.StatusOK, requests)
 }
 
@@ -343,10 +327,8 @@ func (h *Handler) ApproveKeyRegenRequest(c *gin.Context) {
 	}
 
 	var req KeyRegenRequest
-	err := h.db.Get(&req, "SELECT * FROM key_regeneration_requests WHERE id = ? LIMIT 1", reqID)
-	if err != nil {
-		err = h.db.Get(&req, "SELECT * FROM key_regeneration_requests WHERE id = $1 LIMIT 1", reqID)
-	}
+	selectReq := h.db.Rebind("SELECT * FROM key_regeneration_requests WHERE id = ? LIMIT 1")
+	err := h.db.Get(&req, selectReq, reqID)
 
 	if err != nil || req.ID == "" {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Permintaan regenerasi key tidak ditemukan"})
@@ -364,31 +346,21 @@ func (h *Handler) ApproveKeyRegenRequest(c *gin.Context) {
 	newWebhookSec := generateRandomKey("whsec_live_", 20)
 
 	// 2. Update app credentials
-	_, _ = h.db.Exec(`
+	updateApp := h.db.Rebind(`
 		UPDATE apps 
 		SET public_key = ?, secret_key = ?, webhook_secret = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, newPublicKey, newSecretKey, newWebhookSec, req.AppID)
-
-	_, _ = h.db.Exec(`
-		UPDATE apps 
-		SET public_key = $1, secret_key = $2, webhook_secret = $3, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $4
-	`, newPublicKey, newSecretKey, newWebhookSec, req.AppID)
+	`)
+	_, _ = h.db.Exec(updateApp, newPublicKey, newSecretKey, newWebhookSec, req.AppID)
 
 	// 3. Mark request as APPROVED
 	now := time.Now()
-	_, _ = h.db.Exec(`
+	updateReq := h.db.Rebind(`
 		UPDATE key_regeneration_requests
-		SET status = 'APPROVED', approved_by = ?, approved_at = ?, email_sent = 1
+		SET status = 'APPROVED', approved_by = ?, approved_at = ?, email_sent = true
 		WHERE id = ?
-	`, adminEmail, now, reqID)
-
-	_, _ = h.db.Exec(`
-		UPDATE key_regeneration_requests
-		SET status = 'APPROVED', approved_by = $1, approved_at = $2, email_sent = TRUE
-		WHERE id = $3
-	`, adminEmail, now, reqID)
+	`)
+	_, _ = h.db.Exec(updateReq, adminEmail, now, reqID)
 
 	// 4. Dispatch Email Notification via sendagomail.adilabs.id
 	mailRes, _ := h.mailer.SendKeyRegenApprovalEmail(req.RequestedBy, req.AppName, newPublicKey, adminEmail)
@@ -428,27 +400,20 @@ func (h *Handler) RejectKeyRegenRequest(c *gin.Context) {
 	}
 
 	var req KeyRegenRequest
-	err := h.db.Get(&req, "SELECT * FROM key_regeneration_requests WHERE id = ? LIMIT 1", reqID)
-	if err != nil {
-		err = h.db.Get(&req, "SELECT * FROM key_regeneration_requests WHERE id = $1 LIMIT 1", reqID)
-	}
+	selectReq := h.db.Rebind("SELECT * FROM key_regeneration_requests WHERE id = ? LIMIT 1")
+	err := h.db.Get(&req, selectReq, reqID)
 
 	if err != nil || req.ID == "" {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Permintaan tidak ditemukan"})
 		return
 	}
 
-	_, _ = h.db.Exec(`
+	updateReq := h.db.Rebind(`
 		UPDATE key_regeneration_requests
 		SET status = 'REJECTED', approved_by = ?, rejection_reason = ?
 		WHERE id = ?
-	`, adminEmail, payload.Reason, reqID)
-
-	_, _ = h.db.Exec(`
-		UPDATE key_regeneration_requests
-		SET status = 'REJECTED', approved_by = $1, rejection_reason = $2
-		WHERE id = $3
-	`, adminEmail, payload.Reason, reqID)
+	`)
+	_, _ = h.db.Exec(updateReq, adminEmail, payload.Reason, reqID)
 
 	log.Printf("🚫 [KEY REGEN REJECTED] Admin %s rejected key regen for '%s' (Reason: %s)", adminEmail, req.AppName, payload.Reason)
 

@@ -16,6 +16,8 @@ export interface PaymentDetails {
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string;
+  notes?: string;
+  metadata?: Record<string, any>;
   redirect_url?: string;
   bank_name?: string;
   bank_account_number?: string;
@@ -251,6 +253,16 @@ export const api = {
 
   async manualReconcile(id: string): Promise<{ status: string }> {
     return this.reconcileTransaction(id);
+  },
+
+  async resendWebhook(id: string): Promise<{ status: string; message: string; is_success: boolean; response_status: number }> {
+    const res = await fetch(`${API_BASE_URL}/v1/admin/transactions/${id}/resend-webhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...auth.getAuthHeaders() },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal mengirim ulang webhook');
+    return data;
   },
 
   async getApps(): Promise<AppProfile[]> {

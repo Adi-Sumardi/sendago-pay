@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     customer_phone VARCHAR(50) DEFAULT '',
     qris_payload TEXT DEFAULT '',               -- Injected Dynamic EMVCo QRIS
     notes TEXT DEFAULT '',
+    metadata JSONB DEFAULT '{}'::jsonb,
     redirect_url TEXT DEFAULT '',
     expired_at TIMESTAMP WITH TIME ZONE NOT NULL,
     paid_at TIMESTAMP WITH TIME ZONE,
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 CREATE INDEX IF NOT EXISTS idx_transactions_total_amount ON transactions(total_amount);
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_metadata ON transactions USING gin(metadata);
 
 -- 4. Bank / QRIS Mutations Log
 CREATE TABLE IF NOT EXISTS bank_mutations (

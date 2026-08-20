@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -14,6 +15,8 @@ import (
 
 	"sendagopay-backend/internal/config"
 	"sendagopay-backend/internal/mailer"
+	"sendagopay-backend/internal/modules/payment"
+	"sendagopay-backend/internal/modules/webhook"
 	"sendagopay-backend/internal/totp"
 )
 
@@ -28,16 +31,18 @@ type SummaryStats struct {
 }
 
 type Handler struct {
-	db     *sqlx.DB
-	cfg    *config.Config
-	mailer *mailer.Mailer
+	db         *sqlx.DB
+	cfg        *config.Config
+	mailer     *mailer.Mailer
+	dispatcher *webhook.Dispatcher
 }
 
-func NewHandler(db *sqlx.DB, cfg *config.Config) *Handler {
+func NewHandler(db *sqlx.DB, cfg *config.Config, dispatcher *webhook.Dispatcher) *Handler {
 	return &Handler{
-		db:     db,
-		cfg:    cfg,
-		mailer: mailer.New(cfg.SendagoMailEndpoint, cfg.SendagoMailMemberID, cfg.SendagoMailSecret, cfg.SendagoMailFromAddr),
+		db:         db,
+		cfg:        cfg,
+		mailer:     mailer.New(cfg.SendagoMailEndpoint, cfg.SendagoMailMemberID, cfg.SendagoMailSecret, cfg.SendagoMailFromAddr),
+		dispatcher: dispatcher,
 	}
 }
 
@@ -69,17 +74,13 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	// 1. Check in merchants table
-	err := h.db.Get(&user, "SELECT id, email, password_hash, name, totp_secret, is_2fa_enabled FROM merchants WHERE email = ? LIMIT 1", req.Email)
-	if err != nil {
-		_ = h.db.Get(&user, "SELECT id, email, password_hash, name, totp_secret, is_2fa_enabled FROM merchants WHERE email = $1 LIMIT 1", req.Email)
-	}
+	merchantQuery := h.db.Rebind("SELECT id, email, password_hash, name, totp_secret, is_2fa_enabled FROM merchants WHERE email = ? LIMIT 1")
+	_ = h.db.Get(&user, merchantQuery, req.Email)
 
 	// 2. If not found in merchants, check admin_users table
 	if user.ID == "" {
-		err = h.db.Get(&user, "SELECT id, email, password_hash, name, totp_secret, is_2fa_enabled FROM admin_users WHERE email = ? AND status = 'ACTIVE' LIMIT 1", req.Email)
-		if err != nil {
-			_ = h.db.Get(&user, "SELECT id, email, password_hash, name, totp_secret, is_2fa_enabled FROM admin_users WHERE email = $1 AND status = 'ACTIVE' LIMIT 1", req.Email)
-		}
+		adminQuery := h.db.Rebind("SELECT id, email, password_hash, name, totp_secret, is_2fa_enabled FROM admin_users WHERE email = ? AND status = 'ACTIVE' LIMIT 1")
+		_ = h.db.Get(&user, adminQuery, req.Email)
 	}
 
 	if user.ID == "" {
@@ -175,10 +176,11 @@ func (h *Handler) Setup2FA(c *gin.Context) {
 
 	otpAuthURL := totp.GenerateOTPAuthURL("SendaGoPay", userEmail, secret)
 
-	_, _ = h.db.Exec("UPDATE merchants SET totp_secret = $1 WHERE email = $2", secret, userEmail)
-	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = $1 WHERE email = $2", secret, userEmail)
-	// Also fallback without email filter if single admin exists
-	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = $1 WHERE status = 'ACTIVE'", secret)
+	updateMerchant := h.db.Rebind("UPDATE merchants SET totp_secret = ? WHERE email = ?")
+	_, _ = h.db.Exec(updateMerchant, secret, userEmail)
+
+	updateAdmin := h.db.Rebind("UPDATE admin_users SET totp_secret = ? WHERE email = ?")
+	_, _ = h.db.Exec(updateAdmin, secret, userEmail)
 
 	c.JSON(http.StatusOK, gin.H{
 		"secret":      secret,
@@ -218,9 +220,11 @@ func (h *Handler) VerifyAndEnable2FA(c *gin.Context) {
 		userEmail = "adi@adilabs.id"
 	}
 
-	_, _ = h.db.Exec("UPDATE merchants SET totp_secret = $1, is_2fa_enabled = true WHERE email = $2", secret, userEmail)
-	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = $1, is_2fa_enabled = true WHERE email = $2", secret, userEmail)
-	_, _ = h.db.Exec("UPDATE admin_users SET totp_secret = $1, is_2fa_enabled = true WHERE status = 'ACTIVE'", secret)
+	updateMerchant := h.db.Rebind("UPDATE merchants SET totp_secret = ?, is_2fa_enabled = true WHERE email = ?")
+	_, _ = h.db.Exec(updateMerchant, secret, userEmail)
+
+	updateAdmin := h.db.Rebind("UPDATE admin_users SET totp_secret = ?, is_2fa_enabled = true WHERE email = ?")
+	_, _ = h.db.Exec(updateAdmin, secret, userEmail)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":         "success",
@@ -241,9 +245,11 @@ func (h *Handler) Disable2FA(c *gin.Context) {
 		userEmail = "adi@adilabs.id"
 	}
 
-	_, _ = h.db.Exec("UPDATE merchants SET is_2fa_enabled = false, totp_secret = '' WHERE email = $1", userEmail)
-	_, _ = h.db.Exec("UPDATE admin_users SET is_2fa_enabled = false, totp_secret = '' WHERE email = $1", userEmail)
-	_, _ = h.db.Exec("UPDATE admin_users SET is_2fa_enabled = false, totp_secret = '' WHERE status = 'ACTIVE'")
+	updateMerchant := h.db.Rebind("UPDATE merchants SET is_2fa_enabled = false, totp_secret = '' WHERE email = ?")
+	_, _ = h.db.Exec(updateMerchant, userEmail)
+
+	updateAdmin := h.db.Rebind("UPDATE admin_users SET is_2fa_enabled = false, totp_secret = '' WHERE email = ?")
+	_, _ = h.db.Exec(updateAdmin, userEmail)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":         "success",
@@ -275,51 +281,46 @@ func (h *Handler) GetSummaryStats(c *gin.Context) {
 }
 
 type TxRow struct {
-	ID            string     `json:"id" db:"id"`
-	AppID         string     `json:"app_id" db:"app_id"`
-	AppName       string     `json:"app_name" db:"app_name"`
-	OrderID       string     `json:"order_id" db:"order_id"`
-	Amount        float64    `json:"amount" db:"amount"`
-	UniqueCode    int        `json:"unique_code" db:"unique_code"`
-	TotalAmount   float64    `json:"total_amount" db:"total_amount"`
-	Channel       string     `json:"channel" db:"channel"`
-	Status        string     `json:"status" db:"status"`
-	CustomerName  string     `json:"customer_name" db:"customer_name"`
-	CustomerEmail string     `json:"customer_email" db:"customer_email"`
-	ExpiredAt     time.Time  `json:"expired_at" db:"expired_at"`
-	PaidAt        *time.Time `json:"paid_at" db:"paid_at"`
-	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+	ID            string          `json:"id" db:"id"`
+	AppID         string          `json:"app_id" db:"app_id"`
+	AppName       string          `json:"app_name" db:"app_name"`
+	OrderID       string          `json:"order_id" db:"order_id"`
+	Amount        float64         `json:"amount" db:"amount"`
+	UniqueCode    int             `json:"unique_code" db:"unique_code"`
+	TotalAmount   float64         `json:"total_amount" db:"total_amount"`
+	Channel       string          `json:"channel" db:"channel"`
+	Status        string          `json:"status" db:"status"`
+	CustomerName  string          `json:"customer_name" db:"customer_name"`
+	CustomerEmail string          `json:"customer_email" db:"customer_email"`
+	CustomerPhone string          `json:"customer_phone" db:"customer_phone"`
+	Notes         string          `json:"notes" db:"notes"`
+	Metadata      payment.JSONRaw `json:"metadata" db:"metadata"`
+	ExpiredAt     time.Time       `json:"expired_at" db:"expired_at"`
+	PaidAt        *time.Time      `json:"paid_at" db:"paid_at"`
+	CreatedAt     time.Time       `json:"created_at" db:"created_at"`
 }
 
 func (h *Handler) ListTransactions(c *gin.Context) {
 	status := c.Query("status")
 
-	query := `
+	baseQuery := `
 		SELECT t.id, t.app_id, COALESCE(a.name, 'SendaGo SaaS Platform') as app_name, 
 		       t.order_id, t.amount, t.unique_code, t.total_amount, t.channel, 
-		       t.status, t.customer_name, t.customer_email, t.expired_at, t.paid_at, t.created_at
+		       t.status, t.customer_name, t.customer_email, t.customer_phone, 
+		       t.notes, COALESCE(t.metadata, '{}') as metadata, 
+		       t.expired_at, t.paid_at, t.created_at
 		FROM transactions t
 		LEFT JOIN apps a ON t.app_id = a.id
 	`
+
 	var rows []TxRow
 	var err error
 
 	if status != "" {
-		query += " WHERE t.status = ? ORDER BY t.created_at DESC LIMIT 100"
+		query := h.db.Rebind(baseQuery + " WHERE t.status = ? ORDER BY t.created_at DESC LIMIT 100")
 		err = h.db.Select(&rows, query, status)
-		if err != nil {
-			query = `
-				SELECT t.id, t.app_id, COALESCE(a.name, 'SendaGo SaaS Platform') as app_name, 
-				       t.order_id, t.amount, t.unique_code, t.total_amount, t.channel, 
-				       t.status, t.customer_name, t.customer_email, t.expired_at, t.paid_at, t.created_at
-				FROM transactions t
-				LEFT JOIN apps a ON t.app_id = a.id
-				WHERE t.status = $1 ORDER BY t.created_at DESC LIMIT 100
-			`
-			err = h.db.Select(&rows, query, status)
-		}
 	} else {
-		query += " ORDER BY t.created_at DESC LIMIT 100"
+		query := baseQuery + " ORDER BY t.created_at DESC LIMIT 100"
 		err = h.db.Select(&rows, query)
 	}
 
@@ -372,6 +373,82 @@ func (h *Handler) ListWebhookLogs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, logs)
+}
+
+// ResendWebhook handles POST /v1/admin/transactions/:id/resend-webhook
+func (h *Handler) ResendWebhook(c *gin.Context) {
+	txID := c.Param("id")
+
+	query := h.db.Rebind(`
+		SELECT t.*, a.name as app_name, a.webhook_url, a.webhook_secret
+		FROM transactions t
+		JOIN apps a ON t.app_id = a.id
+		WHERE t.id = ? LIMIT 1
+	`)
+
+	var matchedApp struct {
+		payment.Transaction
+		WebhookURL    string `db:"webhook_url"`
+		WebhookSecret string `db:"webhook_secret"`
+	}
+
+	err := h.db.Get(&matchedApp, query, txID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Transaksi tidak ditemukan"})
+		return
+	}
+
+	if matchedApp.WebhookURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Aplikasi klien belum mengkonfigurasi Webhook URL"})
+		return
+	}
+
+	now := time.Now()
+	if matchedApp.PaidAt != nil {
+		now = *matchedApp.PaidAt
+	}
+
+	webhookPayload := webhook.Payload{
+		Event:         "payment.success",
+		TransactionID: matchedApp.ID,
+		OrderID:       matchedApp.OrderID,
+		Amount:        matchedApp.Amount,
+		UniqueCode:    matchedApp.UniqueCode,
+		TotalAmount:   matchedApp.TotalAmount,
+		Status:        matchedApp.Status,
+		Channel:       matchedApp.Channel,
+		Metadata:      json.RawMessage(matchedApp.Metadata),
+		PaidAt:        &now,
+		Timestamp:     now.Unix(),
+	}
+
+	isSuccess, statusCode, respBody, dispatchErr := h.dispatcher.DispatchSync(
+		matchedApp.AppID,
+		matchedApp.ID,
+		"payment.success",
+		matchedApp.WebhookURL,
+		matchedApp.WebhookSecret,
+		webhookPayload,
+	)
+
+	if dispatchErr != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status":          "failed",
+			"message":         "Gagal mengirimkan webhook: " + dispatchErr.Error(),
+			"response_status": statusCode,
+			"target_url":      matchedApp.WebhookURL,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":          "success",
+		"is_success":      isSuccess,
+		"response_status": statusCode,
+		"response_body":   respBody,
+		"target_url":      matchedApp.WebhookURL,
+		"message":         "Webhook berhasil dikirim ulang ke server aplikasi klien",
+	})
 }
 
 func (h *Handler) GetSettings(c *gin.Context) {
@@ -433,10 +510,11 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		m.BankAccountNumber = "8831092819"
 		m.BankAccountName = "ADITYA PUTRA"
 
-		_, _ = h.db.Exec(`
+		insertMerchant := h.db.Rebind(`
 			INSERT INTO merchants (id, email, password_hash, name, master_qris, bank_name, bank_account_number, bank_account_name)
-			VALUES ($1, 'adi@adilabs.id', '$2a$10$default', 'Adi Sumardi', $2, $3, $4, $5)
-		`, m.ID, m.MasterQRIS, m.BankName, m.BankAccountNumber, m.BankAccountName)
+			VALUES (?, 'adi@adilabs.id', '$2a$10$default', 'Adi Sumardi', ?, ?, ?, ?)
+		`)
+		_, _ = h.db.Exec(insertMerchant, m.ID, m.MasterQRIS, m.BankName, m.BankAccountNumber, m.BankAccountName)
 	}
 
 	if req.MasterQRIS != nil && *req.MasterQRIS != "" {
@@ -452,17 +530,12 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		m.BankAccountName = *req.BankAccountName
 	}
 
-	_, _ = h.db.Exec(`
-		UPDATE merchants 
-		SET master_qris = $1, bank_name = $2, bank_account_number = $3, bank_account_name = $4, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $5
-	`, m.MasterQRIS, m.BankName, m.BankAccountNumber, m.BankAccountName, m.ID)
-
-	_, _ = h.db.Exec(`
+	updateMerchant := h.db.Rebind(`
 		UPDATE merchants 
 		SET master_qris = ?, bank_name = ?, bank_account_number = ?, bank_account_name = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, m.MasterQRIS, m.BankName, m.BankAccountNumber, m.BankAccountName, m.ID)
+	`)
+	_, _ = h.db.Exec(updateMerchant, m.MasterQRIS, m.BankName, m.BankAccountNumber, m.BankAccountName, m.ID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
@@ -522,4 +595,3 @@ func (h *Handler) TestSendMail(c *gin.Context) {
 		"result":  result,
 	})
 }
-

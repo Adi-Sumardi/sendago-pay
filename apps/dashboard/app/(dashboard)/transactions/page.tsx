@@ -311,6 +311,66 @@ export default function TransactionsPage() {
               </div>
             </div>
 
+            {/* Metadata / PMB Information */}
+            {selectedTx.metadata && Object.keys(selectedTx.metadata).length > 0 && (
+              <div className="p-3 bg-amber-50/50 rounded-2xl border border-amber-200/80 space-y-1.5">
+                <span className="text-[11px] font-bold text-amber-900 block">Informasi Tambahan (PMB / Siswa):</span>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  {Object.entries(selectedTx.metadata).map(([key, val]) => (
+                    <div key={key} className="bg-white/80 px-2.5 py-1.5 rounded-lg border border-amber-100">
+                      <span className="text-zinc-400 capitalize block text-[10px]">{key.replace(/_/g, ' ')}</span>
+                      <span className="font-semibold text-zinc-800">{String(val)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notes if any */}
+            {selectedTx.notes && (
+              <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200 text-xs">
+                <span className="text-zinc-400 block text-[10px]">Catatan:</span>
+                <span className="text-zinc-700">{selectedTx.notes}</span>
+              </div>
+            )}
+
+            {/* Resend Webhook for PAID Transaction */}
+            {selectedTx.status === 'PAID' && (
+              <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Status: LUNAS (PAID)</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setActionLoading(true);
+                      try {
+                        const res = await api.resendWebhook(selectedTx.id);
+                        if (res.is_success) {
+                          toast.gold('Webhook Berhasil Dikirim! 🚀', `Server klien merespons HTTP ${res.response_status}.`);
+                        } else {
+                          toast.error('Webhook Gagal', `Server klien mengembalikan status ${res.response_status || 'Error'}.`);
+                        }
+                      } catch (e: any) {
+                        toast.error('Gagal Mengirim Webhook', e.message || 'Koneksi gagal.');
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    disabled={actionLoading}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition flex items-center gap-1"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${actionLoading ? 'animate-spin' : ''}`} />
+                    <span>{actionLoading ? 'Mengirim...' : 'Kirim Ulang Webhook'}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-zinc-500">
+                  Kirim ulang notifikasi <code className="text-emerald-700 font-mono">payment.success</code> jika server PMB sempat down saat pembayaran terjadi.
+                </p>
+              </div>
+            )}
+
             {/* Fallback Manual Mark As Paid Action */}
             {selectedTx.status !== 'PAID' && (
               <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-2">

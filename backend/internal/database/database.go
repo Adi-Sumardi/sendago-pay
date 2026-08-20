@@ -119,6 +119,7 @@ func runMigrations(db *sqlx.DB, isPostgres bool) error {
 			customer_phone VARCHAR(50) DEFAULT '',
 			qris_payload TEXT DEFAULT '',
 			notes TEXT DEFAULT '',
+			metadata JSONB DEFAULT '{}'::jsonb,
 			redirect_url TEXT DEFAULT '',
 			expired_at TIMESTAMP WITH TIME ZONE NOT NULL,
 			paid_at TIMESTAMP WITH TIME ZONE,
@@ -126,6 +127,9 @@ func runMigrations(db *sqlx.DB, isPostgres bool) error {
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			CONSTRAINT unique_app_order UNIQUE(app_id, order_id)
 		);
+
+		ALTER TABLE transactions ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
+		ALTER TABLE transactions ADD COLUMN IF NOT EXISTS channel VARCHAR(50) DEFAULT 'QRIS';
 
 		CREATE TABLE IF NOT EXISTS bank_mutations (
 			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -231,6 +235,7 @@ func runMigrations(db *sqlx.DB, isPostgres bool) error {
 		customer_phone TEXT DEFAULT '',
 		qris_payload TEXT DEFAULT '',
 		notes TEXT DEFAULT '',
+		metadata TEXT DEFAULT '{}',
 		redirect_url TEXT DEFAULT '',
 		expired_at DATETIME NOT NULL,
 		paid_at DATETIME,
@@ -281,7 +286,15 @@ func runMigrations(db *sqlx.DB, isPostgres bool) error {
 	);
 	`
 	_, err := db.Exec(sqliteSchema)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// SQLite migrations for existing local database files
+	_, _ = db.Exec("ALTER TABLE transactions ADD COLUMN metadata TEXT DEFAULT '{}'")
+	_, _ = db.Exec("ALTER TABLE transactions ADD COLUMN channel TEXT DEFAULT 'QRIS'")
+
+	return nil
 }
 
 func seedInitialData(db *sqlx.DB) {

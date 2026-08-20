@@ -179,14 +179,40 @@ export default function CheckoutPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-zinc-900 mb-1">Terima Kasih!</h1>
-          <p className="text-zinc-500 text-sm mb-6">
-            Pembayaran untuk pesanan <strong className="text-zinc-800">#{payment.order_id}</strong> telah diterima secara otomatis.
+          <p className="text-zinc-500 text-sm mb-4">
+            Pembayaran untuk <strong className="text-zinc-800">{payment.customer_name || 'Siswa'}</strong> (#{payment.order_id}) telah diterima secara otomatis.
           </p>
 
-          <div className="bg-stone-50 rounded-2xl p-4 border border-zinc-100 mb-6 text-left space-y-2 text-sm">
+          <div className="bg-stone-50 rounded-2xl p-4 border border-zinc-100 mb-6 text-left space-y-2.5 text-xs">
+            {payment.customer_name && (
+              <div className="flex justify-between border-b border-zinc-200/60 pb-2">
+                <span className="text-zinc-500">Nama Siswa / Pembayar</span>
+                <span className="font-bold text-zinc-900">{payment.customer_name}</span>
+              </div>
+            )}
+
+            {payment.notes && (
+              <div className="flex justify-between border-b border-zinc-200/60 pb-2">
+                <span className="text-zinc-500">Keperluan</span>
+                <span className="font-medium text-zinc-800 text-right max-w-[200px] truncate">{payment.notes}</span>
+              </div>
+            )}
+
+            {/* Dynamic Metadata details if available */}
+            {payment.metadata && Object.keys(payment.metadata).length > 0 && (
+              <div className="border-b border-zinc-200/60 pb-2 space-y-1">
+                {Object.entries(payment.metadata).slice(0, 3).map(([key, val]) => (
+                  <div key={key} className="flex justify-between text-[11px]">
+                    <span className="text-zinc-400 capitalize">{key.replace(/_/g, ' ')}</span>
+                    <span className="font-semibold text-zinc-700">{String(val)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex justify-between">
-              <span className="text-zinc-500">Total Dibayar</span>
-              <span className="font-bold text-zinc-900">{formatIDR(payment.total_amount)}</span>
+              <span className="text-zinc-500">No. Tagihan / Order ID</span>
+              <span className="font-mono font-bold text-zinc-900">{payment.order_id}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-zinc-500">Metode Pembayaran</span>
@@ -195,8 +221,12 @@ export default function CheckoutPage() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-zinc-500">Merchant / App</span>
-              <span className="font-medium text-zinc-800">{payment.app_name || 'SendaGo Merchant'}</span>
+              <span className="text-zinc-500">Unit / Lembaga</span>
+              <span className="font-medium text-zinc-800">{payment.app_name || 'Lembaga Pendidikan'}</span>
+            </div>
+            <div className="flex justify-between border-t border-zinc-200 pt-2 text-sm">
+              <span className="font-bold text-zinc-900">Total Dibayar</span>
+              <span className="font-black text-emerald-700">{formatIDR(payment.total_amount)}</span>
             </div>
           </div>
 
@@ -304,6 +334,33 @@ export default function CheckoutPage() {
             <p className="text-xs text-zinc-500 mt-1">
               Transfer <strong className="text-amber-800 font-semibold">tepat hingga 3 digit terakhir</strong> agar transaksi otomatis diverifikasi tanpa konfirmasi manual.
             </p>
+
+            {/* Student & Invoice Info Box */}
+            {(payment.customer_name || payment.notes || (payment.metadata && Object.keys(payment.metadata).length > 0)) && (
+              <div className="mt-3.5 pt-2.5 border-t border-amber-200/60 bg-white/80 rounded-xl p-3 border border-amber-100 space-y-1.5 text-xs">
+                {payment.customer_name && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-400 font-medium text-[11px]">Nama Siswa / Pendaftar:</span>
+                    <span className="font-bold text-zinc-900">{payment.customer_name}</span>
+                  </div>
+                )}
+                {payment.notes && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-400 font-medium text-[11px]">Keperluan:</span>
+                    <span className="font-semibold text-zinc-800">{payment.notes}</span>
+                  </div>
+                )}
+                {payment.metadata && Object.keys(payment.metadata).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {Object.entries(payment.metadata).map(([k, v]) => (
+                      <span key={k} className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/80 text-[10px] font-semibold text-amber-900">
+                        <span className="capitalize text-amber-700 mr-1">{k.replace(/_/g, ' ')}:</span> {String(v)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Payment Method Switcher Tabs */}

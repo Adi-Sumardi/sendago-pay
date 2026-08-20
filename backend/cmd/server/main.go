@@ -49,7 +49,7 @@ func main() {
 	appHandler := app.NewHandler(db, cfg)
 	paymentHandler := payment.NewHandler(db, rdb, cfg, codeGen, dispatcher)
 	mutationHandler := mutation.NewHandler(db, rdb, cfg, codeGen, dispatcher)
-	dashboardHandler := dashboard.NewHandler(db, cfg)
+	dashboardHandler := dashboard.NewHandler(db, cfg, dispatcher)
 	userHandler := user.NewHandler(db, cfg)
 
 	// 5. Setup Gin Router
@@ -137,6 +137,7 @@ func main() {
 			admin.GET("/stats", dashboardHandler.GetSummaryStats)
 			admin.GET("/transactions", dashboardHandler.ListTransactions)
 			admin.POST("/transactions/:id/reconcile", mutationHandler.ManualReconcile)
+			admin.POST("/transactions/:id/resend-webhook", dashboardHandler.ResendWebhook)
 			admin.GET("/webhooks/logs", dashboardHandler.ListWebhookLogs)
 
 			// Multi-App Management

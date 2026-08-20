@@ -17,7 +17,7 @@ type AdminUser struct {
 	ID           string    `json:"id" db:"id"`
 	Email        string    `json:"email" db:"email"`
 	Name         string    `json:"name" db:"name"`
-	Role         string    `json:"role" db:"role"` // SUPER_ADMIN, FINANCE, DEVELOPER, VIEWER
+	Role         string    `json:"role" db:"role"`     // SUPER_ADMIN, FINANCE, DEVELOPER, VIEWER
 	Status       string    `json:"status" db:"status"` // ACTIVE, SUSPENDED
 	Is2FAEnabled bool      `json:"is_2fa_enabled" db:"is_2fa_enabled"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
@@ -92,21 +92,14 @@ func (h *Handler) CreateUser(c *gin.Context) {
 		UpdatedAt:    time.Now(),
 	}
 
-	query := `
-		INSERT INTO admin_users (id, email, password_hash, name, role, status, is_2fa_enabled, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`
-	_, err = h.db.Exec(`
+	query := h.db.Rebind(`
 		INSERT INTO admin_users (id, email, password_hash, name, role, status, is_2fa_enabled, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, newUser.ID, newUser.Email, string(hash), newUser.Name, newUser.Role, newUser.Status, 0, newUser.CreatedAt, newUser.UpdatedAt)
-	
+	`)
+	_, err = h.db.Exec(query, newUser.ID, newUser.Email, string(hash), newUser.Name, newUser.Role, newUser.Status, false, newUser.CreatedAt, newUser.UpdatedAt)
 	if err != nil {
-		_, err = h.db.Exec(query, newUser.ID, newUser.Email, string(hash), newUser.Name, newUser.Role, newUser.Status, false, newUser.CreatedAt, newUser.UpdatedAt)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already registered or database error: " + err.Error()})
-			return
-		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already registered: " + err.Error()})
+		return
 	}
 
 	// Dispatch Invitation Email via sendagomail.adilabs.id
@@ -128,73 +121,44 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 	if req.Password != nil && *req.Password != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
 		if err == nil {
-			_, _ = h.db.Exec("UPDATE admin_users SET password_hash = ? WHERE id = ?", string(hash), id)
-			_, _ = h.db.Exec("UPDATE admin_users SET password_hash = $1 WHERE id = $2", string(hash), id)
-			_, _ = h.db.Exec("UPDATE merchants SET password_hash = ? WHERE id = ? OR email = ?", string(hash), id, req.Email)
-			_, _ = h.db.Exec("UPDATE merchants SET password_hash = $1 WHERE id = $2 OR email = $3", string(hash), id, req.Email)
+			updatePwdAdmin := h.db.Rebind("UPDATE admin_users SET password_hash = ? WHERE id = ?")
+			_, _ = h.db.Exec(updatePwdAdmin, string(hash), id)
+
+			updatePwdMerchant := h.db.Rebind("UPDATE merchants SET password_hash = ? WHERE id = ? OR email = ?")
+			_, _ = h.db.Exec(updatePwdMerchant, string(hash), id, req.Email)
 		}
 	}
 
-	_, _ = h.db.Exec(`
-		UPDATE admin_users 
-		SET name = COALESCE(NULLIF($1, ''), name),
-		    email = COALESCE(NULLIF($2, ''), email),
-		    role = COALESCE(NULLIF($3, ''), role),
-		    status = COALESCE(NULLIF($4, ''), status),
-		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = $5 OR status = 'ACTIVE'
-	`, req.Name, req.Email, req.Role, req.Status, id)
-
-	_, _ = h.db.Exec(`
+	updateQuery := h.db.Rebind(`
 		UPDATE admin_users 
 		SET name = COALESCE(NULLIF(?, ''), name),
 		    email = COALESCE(NULLIF(?, ''), email),
 		    role = COALESCE(NULLIF(?, ''), role),
 		    status = COALESCE(NULLIF(?, ''), status),
 		    updated_at = CURRENT_TIMESTAMP
-		WHERE id = ? OR status = 'ACTIVE'
-	`, req.Name, req.Email, req.Role, req.Status, id)
-
-	// Also sync name/email to merchants table
-	if req.Name != "" || req.Email != "" {
-		_, _ = h.db.Exec(`
-			UPDATE merchants 
-			SET name = COALESCE(NULLIF($1, ''), name),
-			    email = COALESCE(NULLIF($2, ''), email),
-			    updated_at = CURRENT_TIMESTAMP
-			WHERE id = $3 OR email = $4 OR id IS NOT NULL
-		`, req.Name, req.Email, id, req.Email)
-
-		_, _ = h.db.Exec(`
-			UPDATE merchants 
-			SET name = COALESCE(NULLIF(?, ''), name),
-			    email = COALESCE(NULLIF(?, ''), email),
-			    updated_at = CURRENT_TIMESTAMP
-			WHERE id = ? OR email = ? OR id IS NOT NULL
-		`, req.Name, req.Email, id, req.Email)
-	}
+		WHERE id = ?
+	`)
+	_, _ = h.db.Exec(updateQuery, req.Name, req.Email, req.Role, req.Status, id)
 
 	var updated AdminUser
-	_ = h.db.Get(&updated, "SELECT id, email, name, role, status, is_2fa_enabled, created_at, updated_at FROM admin_users WHERE id = $1 LIMIT 1", id)
-	if updated.ID == "" {
-		_ = h.db.Get(&updated, "SELECT id, email, name, role, status, is_2fa_enabled, created_at, updated_at FROM admin_users WHERE status = 'ACTIVE' ORDER BY created_at ASC LIMIT 1")
-	}
+	selectQuery := h.db.Rebind("SELECT id, email, name, role, status, is_2fa_enabled, created_at, updated_at FROM admin_users WHERE id = ? LIMIT 1")
+	_ = h.db.Get(&updated, selectQuery, id)
 
 	c.JSON(http.StatusOK, updated)
 }
 
 func (h *Handler) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
-	_, _ = h.db.Exec("DELETE FROM admin_users WHERE id = ?", id)
-	_, _ = h.db.Exec("DELETE FROM admin_users WHERE id = $1", id)
+	query := h.db.Rebind("DELETE FROM admin_users WHERE id = ?")
+	_, _ = h.db.Exec(query, id)
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "User deleted"})
 }
 
 func (h *Handler) Reset2FA(c *gin.Context) {
 	id := c.Param("id")
-	_, _ = h.db.Exec("UPDATE admin_users SET is_2fa_enabled = 0, totp_secret = '' WHERE id = ?", id)
-	_, _ = h.db.Exec("UPDATE admin_users SET is_2fa_enabled = false, totp_secret = '' WHERE id = $1", id)
+	query := h.db.Rebind("UPDATE admin_users SET is_2fa_enabled = false, totp_secret = '' WHERE id = ?")
+	_, _ = h.db.Exec(query, id)
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "2FA for user has been reset"})
 }
